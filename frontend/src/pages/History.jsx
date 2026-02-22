@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { FileDown, ChevronDown, ChevronRight } from 'lucide-react'
+import { FileDown, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 
 export default function History({ navigate, ctx }) {
     const [suites, setSuites] = useState([])
@@ -9,6 +9,8 @@ export default function History({ navigate, ctx }) {
     const [expanded, setExpanded] = useState({})
     const [details, setDetails] = useState({})
     const [lightbox, setLightbox] = useState(null)
+    const [selectedRuns, setSelectedRuns] = useState(new Set())
+    const [deleting, setDeleting] = useState(false)
 
     useEffect(() => { axios.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
     useEffect(() => {
@@ -29,6 +31,59 @@ export default function History({ navigate, ctx }) {
         return <span className={`badge ${cls[s] || 'badge-error'}`}>{s}</span>
     }
 
+    // Toggle checkbox for a single run
+    const toggleSelect = (runId, e) => {
+        e.stopPropagation()
+        setSelectedRuns(prev => {
+            const next = new Set(prev)
+            if (next.has(runId)) next.delete(runId)
+            else next.add(runId)
+            return next
+        })
+    }
+
+    // Toggle select all
+    const toggleSelectAll = () => {
+        if (selectedRuns.size === runs.length) {
+            setSelectedRuns(new Set())
+        } else {
+            setSelectedRuns(new Set(runs.map(r => r.id)))
+        }
+    }
+
+    // Delete a single run
+    const deleteSingleRun = async (runId, e) => {
+        e.stopPropagation()
+        if (!confirm(`Bạn có chắc muốn xóa run "${runId}"?\nDữ liệu kết quả và evidence sẽ bị xóa vĩnh viễn.`)) return
+        setDeleting(true)
+        try {
+            await axios.delete(`/api/runs/${runId}`)
+            setRuns(prev => prev.filter(r => r.id !== runId))
+            setSelectedRuns(prev => { const next = new Set(prev); next.delete(runId); return next })
+            setDetails(prev => { const next = { ...prev }; delete next[runId]; return next })
+            setExpanded(prev => { const next = { ...prev }; delete next[runId]; return next })
+        } catch (err) {
+            alert('Lỗi khi xóa: ' + (err.response?.data?.error || err.message))
+        }
+        setDeleting(false)
+    }
+
+    // Bulk delete selected runs
+    const deleteSelectedRuns = async () => {
+        const ids = Array.from(selectedRuns)
+        if (ids.length === 0) return
+        if (!confirm(`Bạn có chắc muốn xóa ${ids.length} run đã chọn?\nDữ liệu kết quả và evidence sẽ bị xóa vĩnh viễn.`)) return
+        setDeleting(true)
+        try {
+            await axios.post('/api/runs/bulk-delete', { ids })
+            setRuns(prev => prev.filter(r => !selectedRuns.has(r.id)))
+            setSelectedRuns(new Set())
+        } catch (err) {
+            alert('Lỗi khi xóa: ' + (err.response?.data?.error || err.message))
+        }
+        setDeleting(false)
+    }
+
     return (
         <div>
             {lightbox && (
@@ -39,12 +94,38 @@ export default function History({ navigate, ctx }) {
             )}
 
             <div className="card" style={{ padding: 16, marginBottom: 20 }}>
-                <div style={{ maxWidth: 360 }}>
-                    <label className="form-label">Lọc theo Suite</label>
-                    <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
-                        <option value="">-- Tất cả Suite --</option>
-                        {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ maxWidth: 360 }}>
+                        <label className="form-label">Lọc theo Suite</label>
+                        <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
+                            <option value="">-- Tất cả Suite --</option>
+                            {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </div>
+                    {runs.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedRuns.size === runs.length && runs.length > 0}
+                                    onChange={toggleSelectAll}
+                                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                                />
+                                Chọn tất cả ({runs.length})
+                            </label>
+                            {selectedRuns.size > 0 && (
+                                <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={deleteSelectedRuns}
+                                    disabled={deleting}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                >
+                                    <Trash2 size={14} />
+                                    Xóa đã chọn ({selectedRuns.size})
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -55,8 +136,15 @@ export default function History({ navigate, ctx }) {
                 const isOpen = expanded[run.id]
                 const detail = details[run.id]
                 return (
-                    <div key={run.id} className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
+                    <div key={run.id} className="card" style={{ marginBottom: 12, overflow: 'hidden', border: selectedRuns.has(run.id) ? '2px solid var(--primary)' : undefined }}>
                         <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }} onClick={() => toggleExpand(run.id)}>
+                            {/* Checkbox */}
+                            <input
+                                type="checkbox"
+                                checked={selectedRuns.has(run.id)}
+                                onChange={(e) => toggleSelect(run.id, e)}
+                                style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
+                            />
                             {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                             <div style={{ flex: 1 }}>
                                 <div className="flex items-center gap-2">
@@ -77,6 +165,16 @@ export default function History({ navigate, ctx }) {
                                     <a className="btn btn-ghost btn-sm" href={`/api/reports/${run.id}/pdf`} target="_blank">PDF</a>
                                 </div>
                             )}
+                            {/* Delete button */}
+                            <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={(e) => deleteSingleRun(run.id, e)}
+                                disabled={deleting}
+                                title="Xóa run này"
+                                style={{ color: 'var(--danger)', padding: '4px 8px', flexShrink: 0 }}
+                            >
+                                <Trash2 size={15} />
+                            </button>
                         </div>
 
                         {isOpen && detail && (

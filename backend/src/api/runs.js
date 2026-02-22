@@ -3,6 +3,10 @@ const router = express.Router();
 const db = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const TestRunner = require('../runner/TestRunner');
+const fs = require('fs');
+const path = require('path');
+
+const EVIDENCE_BASE = path.join(__dirname, '../../../evidence');
 
 let io_ref = null;
 router.setIO = (io) => { io_ref = io; };
@@ -67,6 +71,47 @@ router.post('/', async (req, res) => {
                 if (io_ref) io_ref.emit('run_error', { runId, error: err.message });
             }
         });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Helper: delete a single run and its associated data
+async function deleteRunData(runId) {
+    await db.runs.remove({ id: runId }, {});
+    const removedResults = await db.results.remove({ run_id: runId }, { multi: true });
+    // Remove evidence folder
+    const evidenceDir = path.join(EVIDENCE_BASE, runId);
+    if (fs.existsSync(evidenceDir)) {
+        fs.rmSync(evidenceDir, { recursive: true, force: true });
+    }
+    return removedResults;
+}
+
+// DELETE single run
+router.delete('/:id', async (req, res) => {
+    try {
+        const run = await db.runs.findOne({ id: req.params.id });
+        if (!run) return res.status(404).json({ error: 'Run not found' });
+        await deleteRunData(req.params.id);
+        res.json({ deleted: 1, id: req.params.id });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST bulk delete runs
+router.post('/bulk-delete', async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'ids array required' });
+        }
+        let deleted = 0;
+        for (const id of ids) {
+            const run = await db.runs.findOne({ id });
+            if (run) {
+                await deleteRunData(id);
+                deleted++;
+            }
+        }
+        res.json({ deleted });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

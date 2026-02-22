@@ -317,6 +317,18 @@ Dựa trên nghiên cứu, Playwright cung cấp sự cân bằng tốt nhất v
 - Tùy chọn xuất
 - Chia sẻ và tải xuống
 
+#### 3.5.5 Quản Lý Lịch Sử Chạy Test
+**Ưu tiên: P1 (Nên có)**
+
+- Xóa từng lần chạy (run) riêng lẻ với nút xóa trên mỗi dòng
+- Chọn nhiều run bằng checkbox và xóa hàng loạt
+- Hộp thoại xác nhận trước khi xóa để tránh xóa nhầm
+- Tự động dọn dẹp dữ liệu liên quan khi xóa:
+  - Kết quả test (test results) trong database
+  - Thư mục evidence (screenshots, videos)
+- Checkbox "Chọn tất cả" để thao tác nhanh
+- Highlight visual cho các run đã được chọn
+
 ---
 
 ## 4. Kiến Trúc Kỹ Thuật

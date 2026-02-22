@@ -241,6 +241,21 @@ Kế hoạch triển khai này phác thảo phương pháp kỹ thuật để x�
 - [ ] Tạo test detail modal/page với evidence
 - [ ] Tạo export controls
 
+### 7.3 Quản Lý Lịch Sử Chạy Test
+
+#### [x] Backend API - Xóa Run
+- [x] Tạo helper function `deleteRunData()` xóa run + results + evidence folder
+- [x] Tạo endpoint `DELETE /api/runs/:id` - Xóa một run
+- [x] Tạo endpoint `POST /api/runs/bulk-delete` - Xóa nhiều run (body: `{ ids: [] }`)
+- [x] Tự động xóa thư mục evidence khi xóa run
+
+#### [x] Frontend UI - Xóa Run
+- [x] Thêm checkbox chọn từng run và "Chọn tất cả"
+- [x] Thêm nút "Xóa đã chọn" trên thanh toolbar (hiện khi có run được chọn)
+- [x] Thêm nút xóa (🗑️) trên mỗi run
+- [x] Hộp thoại xác nhận trước khi xóa
+- [x] Highlight visual cho run đã chọn (viền màu primary)
+
 ---
 
 ## Giai Đoạn 8: Giao Diện Người Dùng & Dashboard (Tuần 10)
