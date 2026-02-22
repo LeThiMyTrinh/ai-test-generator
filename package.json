@@ -1,0 +1,13 @@
+{
+    "name": "ai-test-generator",
+    "version": "1.0.0",
+    "description": "AI Test Case Generator - Automated Web Testing Platform",
+    "scripts": {
+        "install:all": "cd backend && npm install && cd ../frontend && npm install",
+        "build": "cd frontend && npm run build",
+        "start": "cd backend && node src/server.js",
+        "dev": "cd backend && npm run dev",
+        "setup": "npm run install:all && npm run build",
+        "prod": "npm run build && npm run start"
+    }
+}
