@@ -1,36 +1,65 @@
-const { chromium, firefox, webkit } = require('playwright');
+const { chromium, firefox, webkit, devices } = require('playwright');
 const ActionHandler = require('./ActionHandler');
 const EvidenceManager = require('./EvidenceManager');
 const path = require('path');
 
 const BROWSER_MAP = { chromium, firefox, webkit };
 
+// Danh sách thiết bị hỗ trợ (map từ tên thân thiện → Playwright device name)
+const DEVICE_MAP = {
+    // iPhone
+    'iphone-15': 'iPhone 15',
+    'iphone-15-pro': 'iPhone 15 Pro',
+    'iphone-14': 'iPhone 14',
+    'iphone-13': 'iPhone 13',
+    'iphone-12': 'iPhone 12',
+    'iphone-se': 'iPhone SE',
+    // Android
+    'pixel-7': 'Pixel 7',
+    'pixel-5': 'Pixel 5',
+    'galaxy-s23': 'Galaxy S23',
+    'galaxy-s9': 'Galaxy S9+',
+    // Tablet
+    'ipad-pro': 'iPad Pro 11',
+    'ipad-mini': 'iPad Mini',
+    'galaxy-tab': 'Galaxy Tab S4',
+};
+
 class TestRunner {
     constructor({ io } = {}) {
-        this.io = io; // Socket.IO instance for real-time updates
+        this.io = io;
     }
 
     emit(event, data) {
-        if (this.io) {
-            this.io.emit(event, data);
-        }
+        if (this.io) this.io.emit(event, data);
     }
 
     async runTestCase(testCase, runId) {
-        const { id: tcId, title, url, browser = 'chromium', steps_json } = testCase;
+        const { id: tcId, title, url, browser = 'chromium', device = null, steps_json } = testCase;
         const steps = typeof steps_json === 'string' ? JSON.parse(steps_json) : steps_json;
         const evidence = new EvidenceManager(runId, tcId);
         const startTime = Date.now();
 
         const BrowserClass = BROWSER_MAP[browser] || chromium;
         const browserInstance = await BrowserClass.launch({ headless: true });
-        const context = await browserInstance.newContext({
-            recordVideo: {
-                dir: evidence.dir,
-                size: { width: 1280, height: 720 }
-            },
-            viewport: { width: 1280, height: 720 }
-        });
+
+        // Resolve device config: nếu có device → dùng Playwright devices, không có → desktop
+        let contextOptions;
+        const playwrightDeviceName = device ? DEVICE_MAP[device] || device : null;
+        if (playwrightDeviceName && devices[playwrightDeviceName]) {
+            contextOptions = {
+                ...devices[playwrightDeviceName],
+                recordVideo: { dir: evidence.dir, size: devices[playwrightDeviceName].viewport }
+            };
+        } else {
+            contextOptions = {
+                recordVideo: { dir: evidence.dir, size: { width: 1920, height: 1080 } },
+                viewport: { width: 1920, height: 1080 },
+                deviceScaleFactor: 1
+            };
+        }
+
+        const context = await browserInstance.newContext(contextOptions);
         const page = await context.newPage();
         const handler = new ActionHandler(page);
 

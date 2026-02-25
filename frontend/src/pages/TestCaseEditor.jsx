@@ -13,7 +13,24 @@ const ACTION_LABELS = {
 
 const emptyStep = (i) => ({ step_id: i, action: 'click', selector: '', value: '', expected: '', description: '' })
 
-const emptyTC = () => ({ title: '', description: '', url: '', browser: 'chromium', steps: [emptyStep(1)], nlText: '' })
+const DEVICE_OPTIONS = [
+    { value: '', label: '🖥️ Desktop (mặc định)' },
+    { value: 'iphone-15', label: '📱 iPhone 15 (390×844)' },
+    { value: 'iphone-15-pro', label: '📱 iPhone 15 Pro (393×852)' },
+    { value: 'iphone-14', label: '📱 iPhone 14 (390×844)' },
+    { value: 'iphone-13', label: '📱 iPhone 13 (390×844)' },
+    { value: 'iphone-12', label: '📱 iPhone 12 (390×844)' },
+    { value: 'iphone-se', label: '📱 iPhone SE (375×667)' },
+    { value: 'pixel-7', label: '📱 Pixel 7 (412×915)' },
+    { value: 'pixel-5', label: '📱 Pixel 5 (393×851)' },
+    { value: 'galaxy-s23', label: '📱 Galaxy S23 (360×780)' },
+    { value: 'galaxy-s9', label: '📱 Galaxy S9+ (320×658)' },
+    { value: 'ipad-pro', label: '📟 iPad Pro 11 (834×1194)' },
+    { value: 'ipad-mini', label: '📟 iPad Mini (768×1024)' },
+    { value: 'galaxy-tab', label: '📟 Galaxy Tab S4 (712×1138)' },
+]
+
+const emptyTC = () => ({ title: '', description: '', url: '', browser: 'chromium', device: '', steps: [emptyStep(1)], nlText: '' })
 
 const NL_PLACEHOLDER = `Viết các bước kiểm thử bằng ngôn ngữ tự nhiên, mỗi dòng = 1 bước.
 
@@ -102,9 +119,8 @@ export default function TestCaseEditor({ navigate, ctx }) {
 
     const openEdit = (tc) => {
         setEditId(tc.id)
-        // Convert existing steps back to NL text for display
         const nlLines = (tc.steps || []).map(s => s.description || `${s.action}: ${s.selector || s.value || ''}`).join('\n')
-        setForm({ title: tc.title, description: tc.description, url: tc.url, browser: tc.browser, steps: tc.steps || [emptyStep(1)], nlText: nlLines })
+        setForm({ title: tc.title, description: tc.description, url: tc.url, browser: tc.browser, device: tc.device || '', steps: tc.steps || [emptyStep(1)], nlText: nlLines })
         setTabMode('nl')
         setShowPreview(true)
         setShowForm(true)
@@ -173,14 +189,17 @@ export default function TestCaseEditor({ navigate, ctx }) {
                     {/* Test cases list */}
                     <div className="card table-wrap">
                         <table>
-                            <thead><tr><th>Tiêu đề</th><th>URL</th><th>Trình duyệt</th><th>Số bước</th><th>Thao tác</th></tr></thead>
+                            <thead><tr><th>Tiêu đề</th><th>URL</th><th>Trình duyệt / Thiết bị</th><th>Số bước</th><th>Thao tác</th></tr></thead>
                             <tbody>
                                 {testCases.length === 0 && <tr><td colSpan={5}><div className="empty-state"><p>Chưa có test case. Tạo mới hoặc upload Excel.</p></div></td></tr>}
                                 {testCases.map(tc => (
                                     <tr key={tc.id}>
                                         <td><strong>{tc.title}</strong><br /><span className="text-muted text-sm">{tc.id}</span></td>
                                         <td className="text-sm text-muted" style={{ maxWidth: 200, wordBreak: 'break-all' }}>{tc.url}</td>
-                                        <td><span className="badge badge-running">{tc.browser || 'chromium'}</span></td>
+                                        <td>
+                                            <span className="badge badge-running">{tc.browser || 'chromium'}</span>
+                                            {tc.device && <span className="badge" style={{ marginLeft: 4, background: 'var(--primary-light, #eff6ff)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>📱 {DEVICE_OPTIONS.find(d => d.value === tc.device)?.label.replace(/^📱|^📟/, '').trim() || tc.device}</span>}
+                                        </td>
                                         <td>{(tc.steps || []).length} bước</td>
                                         <td>
                                             <div className="flex gap-2">
@@ -219,6 +238,17 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                         <option value="webkit">WebKit (Safari)</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">📱 Thiết bị / Màn hình</label>
+                                <select className="form-control" value={form.device} onChange={e => setForm(p => ({ ...p, device: e.target.value }))}>
+                                    {DEVICE_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                </select>
+                                {form.device && (
+                                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        ✅ Test case sẽ chạy với viewport và userAgent của <strong>{DEVICE_OPTIONS.find(d => d.value === form.device)?.label}</strong>
+                                    </div>
+                                )}
                             </div>
                             <div className="form-group">
                                 <label className="form-label">URL mục tiêu *</label>

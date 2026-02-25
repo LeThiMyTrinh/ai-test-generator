@@ -10,6 +10,8 @@ export default function Monitor({ navigate, ctx }) {
     const { suite_id, suite_name } = ctx || {}
     const [suites, setSuites] = useState([])
     const [selectedSuite, setSelectedSuite] = useState(suite_id || '')
+    const [suiteTestCases, setSuiteTestCases] = useState([])   // Danh sách TC của suite đang chọn
+    const [selectedTcIds, setSelectedTcIds] = useState([])     // Danh sách TC được tick
     const [runId, setRunId] = useState(null)
     const [status, setStatus] = useState('idle') // idle | running | done | error
     const [tcResults, setTcResults] = useState({}) // tcId -> { title, status, steps: [] }
@@ -36,13 +38,50 @@ export default function Monitor({ navigate, ctx }) {
         return () => socket?.disconnect()
     }, [])
 
+    // Load test cases khi đổi Suite
+    useEffect(() => {
+        if (!selectedSuite) {
+            setSuiteTestCases([])
+            setSelectedTcIds([])
+            return
+        }
+        axios.get(`/api/test-cases?suite_id=${selectedSuite}`)
+            .then(r => {
+                setSuiteTestCases(r.data)
+                setSelectedTcIds(r.data.map(tc => tc.id)) // Mặc định chọn tất cả
+            })
+            .catch(() => {
+                setSuiteTestCases([])
+                setSelectedTcIds([])
+            })
+    }, [selectedSuite])
+
+    const allChecked = suiteTestCases.length > 0 && selectedTcIds.length === suiteTestCases.length
+    const someChecked = selectedTcIds.length > 0 && selectedTcIds.length < suiteTestCases.length
+
+    const toggleAll = () => {
+        if (allChecked) {
+            setSelectedTcIds([])
+        } else {
+            setSelectedTcIds(suiteTestCases.map(tc => tc.id))
+        }
+    }
+
+    const toggleTc = (id) => {
+        setSelectedTcIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        )
+    }
+
     const startRun = async () => {
         if (!selectedSuite) return toast.error('Chọn Suite trước')
-        const suite = suites.find(s => s.id === selectedSuite)
-        if (suite && suite.tc_count === 0) return toast.error('Suite chưa có test case')
-        setTcResults({}); setSummary(null); setStatus('running'); setProgress({ done: 0, total: suite?.tc_count || 0 })
+        if (selectedTcIds.length === 0) return toast.error('Chọn ít nhất một Test Case để chạy')
+        setTcResults({}); setSummary(null); setStatus('running'); setProgress({ done: 0, total: selectedTcIds.length })
         try {
-            const r = await axios.post('/api/runs', { suite_id: selectedSuite })
+            const r = await axios.post('/api/runs', {
+                suite_id: selectedSuite,
+                test_case_ids: selectedTcIds
+            })
             setRunId(r.data.run_id)
             toast.success('Đã bắt đầu chạy test!')
         } catch (e) { toast.error(e.response?.data?.error || 'Lỗi'); setStatus('idle') }
@@ -77,11 +116,55 @@ export default function Monitor({ navigate, ctx }) {
                         </select>
                     </div>
                     <div style={{ marginTop: 22 }}>
-                        <button className="btn btn-success" onClick={startRun} disabled={status === 'running' || !selectedSuite}>
-                            <PlayCircle size={17} /> {status === 'running' ? 'Đang chạy...' : 'Bắt đầu chạy'}
+                        <button className="btn btn-success" onClick={startRun} disabled={status === 'running' || !selectedSuite || selectedTcIds.length === 0}>
+                            <PlayCircle size={17} /> {status === 'running' ? 'Đang chạy...' : `Bắt đầu chạy (${selectedTcIds.length})`}
                         </button>
                     </div>
                 </div>
+
+                {/* Danh sách Test Cases có checkbox - chỉ hiện khi chưa chạy */}
+                {selectedSuite && suiteTestCases.length > 0 && status === 'idle' && (
+                    <div style={{ marginTop: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
+                            <input
+                                type="checkbox"
+                                id="select-all-tc"
+                                checked={allChecked}
+                                ref={el => { if (el) el.indeterminate = someChecked }}
+                                onChange={toggleAll}
+                                style={{ width: 16, height: 16, cursor: 'pointer' }}
+                            />
+                            <label htmlFor="select-all-tc" style={{ cursor: 'pointer', fontWeight: 600, fontSize: 13, color: 'var(--text-muted)' }}>
+                                {allChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả'} ({selectedTcIds.length}/{suiteTestCases.length})
+                            </label>
+                        </div>
+                        <div style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {suiteTestCases.map((tc, idx) => (
+                                <label
+                                    key={tc.id}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 10,
+                                        padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                                        background: selectedTcIds.includes(tc.id) ? 'var(--primary-light, #eff6ff)' : 'transparent',
+                                        border: '1px solid',
+                                        borderColor: selectedTcIds.includes(tc.id) ? 'var(--primary)' : 'var(--border)',
+                                        transition: 'all 0.15s',
+                                        fontSize: 13,
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedTcIds.includes(tc.id)}
+                                        onChange={() => toggleTc(tc.id)}
+                                        style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0 }}
+                                    />
+                                    <span style={{ color: 'var(--text-muted)', minWidth: 28, fontWeight: 500 }}>#{idx + 1}</span>
+                                    <span style={{ flex: 1, fontWeight: 500 }}>{tc.title}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {status === 'running' && (
                     <div style={{ marginTop: 16 }}>
@@ -113,7 +196,7 @@ export default function Monitor({ navigate, ctx }) {
             {/* Live test results */}
             <div>
                 {tcList.length === 0 && status === 'idle' && (
-                    <div className="empty-state"><PlayCircle size={48} /><p>Chọn suite và nhấn "Bắt đầu chạy" để xem kết quả real-time tại đây</p></div>
+                    <div className="empty-state"><PlayCircle size={48} /><p>Chọn suite, tick các Test Case cần chạy và nhấn "Bắt đầu chạy" để xem kết quả real-time tại đây</p></div>
                 )}
                 {tcList.map(([tcId, tc]) => (
                     <div key={tcId} className={`monitor-tc ${tc.status}`}>

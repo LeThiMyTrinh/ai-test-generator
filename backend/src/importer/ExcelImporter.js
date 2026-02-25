@@ -58,6 +58,7 @@ class ExcelImporter {
                     title: this.str(row.tieu_de || row.title || 'Không có tiêu đề'),
                     url: this.str(row.url || row.URL || ''),
                     browser: (this.str(row.trinh_duyet || row.browser || 'chromium')).toLowerCase() || 'chromium',
+                    device: this.str(row.thiet_bi || row.device || '') || null,
                     description: '',
                     nlLines: []
                 });
@@ -101,6 +102,7 @@ class ExcelImporter {
                 title: tc.title,
                 url: tc.url,
                 browser: tc.browser,
+                device: tc.device || null,
                 description: tc.description,
                 steps
             });
@@ -127,6 +129,7 @@ class ExcelImporter {
                     title: this.str(row.title || 'Không có tiêu đề'),
                     url: this.str(row.url || ''),
                     browser: (this.str(row.browser || 'chromium')).toLowerCase() || 'chromium',
+                    device: this.str(row.thiet_bi || row.device || '') || null,
                     description: this.str(row.description_tc || ''),
                     steps: []
                 });

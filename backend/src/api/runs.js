@@ -34,20 +34,26 @@ router.get('/:id', async (req, res) => {
 // POST start a new run
 router.post('/', async (req, res) => {
     try {
-        const { suite_id } = req.body;
+        const { suite_id, test_case_ids } = req.body;
         if (!suite_id) return res.status(400).json({ error: 'suite_id required' });
 
         const suite = await db.suites.findOne({ id: suite_id });
         if (!suite) return res.status(404).json({ error: 'Suite not found' });
 
-        const testCases = await db.testCases.find({ suite_id }).sort({ created_at: 1 });
+        let testCases = await db.testCases.find({ suite_id }).sort({ created_at: 1 });
         if (testCases.length === 0) return res.status(400).json({ error: 'Suite has no test cases' });
+
+        // Nếu có truyền test_case_ids thì chỉ chạy những TC được chọn
+        if (Array.isArray(test_case_ids) && test_case_ids.length > 0) {
+            testCases = testCases.filter(tc => test_case_ids.includes(tc.id));
+            if (testCases.length === 0) return res.status(400).json({ error: 'Không có test case hợp lệ nào được chọn' });
+        }
 
         const runId = 'RUN-' + Date.now();
         const startedAt = new Date().toISOString();
         await db.runs.insert({ id: runId, suite_id, started_at: startedAt, status: 'RUNNING', summary_json: null });
 
-        res.json({ run_id: runId, status: 'RUNNING' });
+        res.json({ run_id: runId, status: 'RUNNING', total: testCases.length });
 
         setImmediate(async () => {
             try {

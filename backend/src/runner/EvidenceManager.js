@@ -17,7 +17,7 @@ class EvidenceManager {
     async captureScreenshot(page, stepId, label = '') {
         const filename = `step-${String(stepId).padStart(3, '0')}${label ? '-' + label : ''}.png`;
         const filepath = path.join(this.dir, filename);
-        await page.screenshot({ path: filepath, fullPage: false });
+        await page.screenshot({ path: filepath, fullPage: true });
         this.screenshots.push(filepath);
         return filepath;
     }

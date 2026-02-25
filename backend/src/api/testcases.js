@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
         const { suite_id } = req.query;
         const query = suite_id ? { suite_id } : {};
         const rows = await db.testCases.find(query).sort({ created_at: 1 });
-        const result = rows.map(r => ({ ...r, steps: typeof r.steps_json === 'string' ? JSON.parse(r.steps_json) : r.steps_json }));
+        const result = rows.map(r => ({ ...r, steps: typeof r.steps_json === 'string' ? JSON.parse(r.steps_json) : r.steps_json, device: r.device || null }));
         res.json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -40,10 +40,10 @@ router.get('/:id', async (req, res) => {
 // POST create test case (manual)
 router.post('/', async (req, res) => {
     try {
-        const { suite_id, title, description, url, browser, steps } = req.body;
+        const { suite_id, title, description, url, browser, device, steps } = req.body;
         if (!suite_id || !title || !url || !steps) return res.status(400).json({ error: 'suite_id, title, url, steps required' });
         const id = 'TC-' + uuidv4().slice(0, 8).toUpperCase();
-        const doc = { id, suite_id, title, description: description || '', url, browser: browser || 'chromium', steps_json: JSON.stringify(steps), created_at: new Date().toISOString() };
+        const doc = { id, suite_id, title, description: description || '', url, browser: browser || 'chromium', device: device || null, steps_json: JSON.stringify(steps), created_at: new Date().toISOString() };
         await db.testCases.insert(doc);
         res.status(201).json({ id, title });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -52,8 +52,8 @@ router.post('/', async (req, res) => {
 // PUT update test case
 router.put('/:id', async (req, res) => {
     try {
-        const { title, description, url, browser, steps } = req.body;
-        await db.testCases.update({ id: req.params.id }, { $set: { title, description: description || '', url, browser: browser || 'chromium', steps_json: JSON.stringify(steps) } });
+        const { title, description, url, browser, device, steps } = req.body;
+        await db.testCases.update({ id: req.params.id }, { $set: { title, description: description || '', url, browser: browser || 'chromium', device: device || null, steps_json: JSON.stringify(steps) } });
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -78,7 +78,7 @@ router.post('/import/excel', upload.single('file'), async (req, res) => {
         const ids = [];
         for (const tc of testCases) {
             const id = 'TC-' + uuidv4().slice(0, 8).toUpperCase();
-            await db.testCases.insert({ id, suite_id, title: tc.title, description: tc.description || '', url: tc.url, browser: tc.browser || 'chromium', steps_json: JSON.stringify(tc.steps), created_at: new Date().toISOString() });
+            await db.testCases.insert({ id, suite_id, title: tc.title, description: tc.description || '', url: tc.url, browser: tc.browser || 'chromium', device: tc.device || null, steps_json: JSON.stringify(tc.steps), created_at: new Date().toISOString() });
             ids.push(id);
         }
         fs.unlinkSync(req.file.path);
