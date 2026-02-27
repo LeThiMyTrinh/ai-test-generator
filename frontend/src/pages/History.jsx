@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api, { apiUrl } from '../api/client'
 import { FileDown, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 
 export default function History({ navigate, ctx }) {
@@ -12,16 +12,16 @@ export default function History({ navigate, ctx }) {
     const [selectedRuns, setSelectedRuns] = useState(new Set())
     const [deleting, setDeleting] = useState(false)
 
-    useEffect(() => { axios.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
+    useEffect(() => { api.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
     useEffect(() => {
         const url = selectedSuite ? `/api/runs?suite_id=${selectedSuite}` : '/api/runs'
-        axios.get(url).then(r => setRuns(r.data))
+        api.get(url).then(r => setRuns(r.data))
     }, [selectedSuite])
 
     const toggleExpand = async (runId) => {
         setExpanded(p => ({ ...p, [runId]: !p[runId] }))
         if (!details[runId]) {
-            const r = await axios.get(`/api/runs/${runId}`)
+            const r = await api.get(`/api/runs/${runId}`)
             setDetails(p => ({ ...p, [runId]: r.data }))
         }
     }
@@ -57,7 +57,7 @@ export default function History({ navigate, ctx }) {
         if (!confirm(`Bạn có chắc muốn xóa run "${runId}"?\nDữ liệu kết quả và evidence sẽ bị xóa vĩnh viễn.`)) return
         setDeleting(true)
         try {
-            await axios.delete(`/api/runs/${runId}`)
+            await api.delete(`/api/runs/${runId}`)
             setRuns(prev => prev.filter(r => r.id !== runId))
             setSelectedRuns(prev => { const next = new Set(prev); next.delete(runId); return next })
             setDetails(prev => { const next = { ...prev }; delete next[runId]; return next })
@@ -75,7 +75,7 @@ export default function History({ navigate, ctx }) {
         if (!confirm(`Bạn có chắc muốn xóa ${ids.length} run đã chọn?\nDữ liệu kết quả và evidence sẽ bị xóa vĩnh viễn.`)) return
         setDeleting(true)
         try {
-            await axios.post('/api/runs/bulk-delete', { ids })
+            await api.post('/api/runs/bulk-delete', { ids })
             setRuns(prev => prev.filter(r => !selectedRuns.has(r.id)))
             setSelectedRuns(new Set())
         } catch (err) {
@@ -161,8 +161,8 @@ export default function History({ navigate, ctx }) {
                             )}
                             {run.status === 'DONE' && (
                                 <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                                    <a className="btn btn-outline btn-sm" href={`/api/reports/${run.id}/html`} target="_blank"><FileDown size={13} /> HTML</a>
-                                    <a className="btn btn-ghost btn-sm" href={`/api/reports/${run.id}/pdf`} target="_blank">PDF</a>
+                                    <a className="btn btn-outline btn-sm" href={apiUrl(`/api/reports/${run.id}/html`)} target="_blank"><FileDown size={13} /> HTML</a>
+                                    <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${run.id}/pdf`)} target="_blank">PDF</a>
                                 </div>
                             )}
                             {/* Delete button */}

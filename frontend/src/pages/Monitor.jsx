@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import axios from 'axios'
+import api, { apiUrl } from '../api/client'
 import toast from 'react-hot-toast'
 import { io } from 'socket.io-client'
 import { PlayCircle, CheckCircle, XCircle, Clock, Image } from 'lucide-react'
@@ -21,7 +21,7 @@ export default function Monitor({ navigate, ctx }) {
     const logRef = useRef()
 
     useEffect(() => {
-        axios.get('/api/test-suites').then(r => setSuites(r.data))
+        api.get('/api/test-suites').then(r => setSuites(r.data))
         socket = io(window.location.origin)
         socket.on('tc_start', ({ tcId, title }) => {
             setTcResults(p => ({ ...p, [tcId]: { title, status: 'RUNNING', steps: [] } }))
@@ -45,7 +45,7 @@ export default function Monitor({ navigate, ctx }) {
             setSelectedTcIds([])
             return
         }
-        axios.get(`/api/test-cases?suite_id=${selectedSuite}`)
+        api.get(`/api/test-cases?suite_id=${selectedSuite}`)
             .then(r => {
                 setSuiteTestCases(r.data)
                 setSelectedTcIds(r.data.map(tc => tc.id)) // Mặc định chọn tất cả
@@ -78,7 +78,7 @@ export default function Monitor({ navigate, ctx }) {
         if (selectedTcIds.length === 0) return toast.error('Chọn ít nhất một Test Case để chạy')
         setTcResults({}); setSummary(null); setStatus('running'); setProgress({ done: 0, total: selectedTcIds.length })
         try {
-            const r = await axios.post('/api/runs', {
+            const r = await api.post('/api/runs', {
                 suite_id: selectedSuite,
                 test_case_ids: selectedTcIds
             })
@@ -188,8 +188,8 @@ export default function Monitor({ navigate, ctx }) {
 
             {status === 'done' && runId && (
                 <div className="flex gap-2 mb-4">
-                    <a className="btn btn-outline" href={`/api/reports/${runId}/html`} target="_blank">📄 Xuất báo cáo HTML</a>
-                    <a className="btn btn-ghost" href={`/api/reports/${runId}/pdf`} target="_blank">📋 Xuất PDF</a>
+                    <a className="btn btn-outline" href={apiUrl(`/api/reports/${runId}/html`)} target="_blank">📄 Xuất báo cáo HTML</a>
+                    <a className="btn btn-ghost" href={apiUrl(`/api/reports/${runId}/pdf`)} target="_blank">📋 Xuất PDF</a>
                 </div>
             )}
 

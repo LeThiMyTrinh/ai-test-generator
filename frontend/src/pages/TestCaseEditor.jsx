@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import axios from 'axios'
+import api, { apiUrl } from '../api/client'
 import toast from 'react-hot-toast'
 import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -60,10 +60,10 @@ export default function TestCaseEditor({ navigate, ctx }) {
     const [showPreview, setShowPreview] = useState(false)
     const fileRef = useRef()
 
-    useEffect(() => { axios.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
+    useEffect(() => { api.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
     useEffect(() => { if (selectedSuite) loadTCs() }, [selectedSuite])
 
-    const loadTCs = () => axios.get(`/api/test-cases?suite_id=${selectedSuite}`).then(r => setTestCases(r.data))
+    const loadTCs = () => api.get(`/api/test-cases?suite_id=${selectedSuite}`).then(r => setTestCases(r.data))
 
     // NL conversion
     const convertNL = async () => {
@@ -71,7 +71,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
         setConverting(true)
         setWarnings([])
         try {
-            const r = await axios.post('/api/nl-parser/convert', { text: form.nlText })
+            const r = await api.post('/api/nl-parser/convert', { text: form.nlText })
             const { steps, warnings: warns } = r.data
             if (steps.length === 0) {
                 toast.error('Không nhận diện được bước nào. Hãy thử diễn đạt lại.')
@@ -107,14 +107,14 @@ export default function TestCaseEditor({ navigate, ctx }) {
         if (form.steps.length === 0) return toast.error('Cần có ít nhất 1 bước thực hiện')
         const payload = { ...form, suite_id: selectedSuite }
         delete payload.nlText // Don't send NL text to API
-        if (editId) { await axios.put(`/api/test-cases/${editId}`, payload); toast.success('Đã cập nhật') }
-        else { await axios.post('/api/test-cases', payload); toast.success('Đã tạo test case') }
+        if (editId) { await api.put(`/api/test-cases/${editId}`, payload); toast.success('Đã cập nhật') }
+        else { await api.post('/api/test-cases', payload); toast.success('Đã tạo test case') }
         setShowForm(false); setForm(emptyTC()); setEditId(null); setShowPreview(false); setWarnings([]); loadTCs()
     }
 
     const del = async (id, title) => {
         if (!confirm(`Xóa test case "${title}"?`)) return
-        await axios.delete(`/api/test-cases/${id}`); toast.success('Đã xóa'); loadTCs()
+        await api.delete(`/api/test-cases/${id}`); toast.success('Đã xóa'); loadTCs()
     }
 
     const openEdit = (tc) => {
@@ -134,7 +134,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
         const fd = new FormData(); fd.append('file', file); fd.append('suite_id', selectedSuite)
         setUploading(true)
         try {
-            const r = await axios.post('/api/test-cases/import/excel', fd)
+            const r = await api.post('/api/test-cases/import/excel', fd)
             toast.success(`Đã import ${r.data.imported} test case`)
             if (r.data.warnings && r.data.warnings.length > 0) {
                 r.data.warnings.forEach(w => {
@@ -164,7 +164,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                     {selectedSuite && (
                         <div className="flex gap-2" style={{ marginTop: 22 }}>
                             <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(emptyTC()); setTabMode('nl'); setShowPreview(false); setWarnings([]); setShowForm(true) }}><Plus size={15} /> Thêm TC</button>
-                            <a className="btn btn-ghost" href="/api/test-cases/template/download" download title="Tải file mẫu Excel"><Download size={15} /> File mẫu</a>
+                            <a className="btn btn-ghost" href={apiUrl('/api/test-cases/template/download')} download title="Tải file mẫu Excel"><Download size={15} /> File mẫu</a>
                         </div>
                     )}
                 </div>
@@ -182,7 +182,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                     >
                         <Upload size={28} style={{ margin: '0 auto 8px', display: 'block' }} />
                         <strong>{uploading ? 'Đang upload...' : 'Click hoặc kéo thả file Excel để import hàng loạt'}</strong>
-                        <div className="text-sm" style={{ marginTop: 4 }}>Chỉ chấp nhận .xlsx theo mẫu. <a href="/api/test-cases/template/download" onClick={e => e.stopPropagation()} style={{ color: 'var(--primary)' }}>Tải file mẫu tại đây</a></div>
+                        <div className="text-sm" style={{ marginTop: 4 }}>Chỉ chấp nhận .xlsx theo mẫu. <a href={apiUrl('/api/test-cases/template/download')} onClick={e => e.stopPropagation()} style={{ color: 'var(--primary)' }}>Tải file mẫu tại đây</a></div>
                         <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={e => handleFileUpload(e.target.files[0])} />
                     </div>
 

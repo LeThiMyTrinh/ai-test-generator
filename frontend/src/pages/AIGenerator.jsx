@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
+import api from '../api/client'
 import toast from 'react-hot-toast'
 import { Sparkles, Upload, Globe, FileText, Trash2, GripVertical, Plus, RefreshCw, Save, ChevronRight, Eye, Loader2, AlertTriangle, ArrowLeft } from 'lucide-react'
 
@@ -30,8 +30,8 @@ export default function AIGenerator({ navigate, ctx }) {
     const fileRef = useRef(null)
 
     useEffect(() => {
-        axios.get('/api/ai/status').then(r => setAiStatus(r.data)).catch(() => setAiStatus({ configured: false }))
-        axios.get('/api/test-suites').then(r => setSuites(r.data))
+        api.get('/api/ai/status').then(r => setAiStatus(r.data)).catch(() => setAiStatus({ configured: false }))
+        api.get('/api/test-suites').then(r => setSuites(r.data))
     }, [])
 
     // Handle file drop / select
@@ -71,7 +71,7 @@ export default function AIGenerator({ navigate, ctx }) {
             if (description) formData.append('description', description)
 
             setLoadingMsg('Đang gửi dữ liệu cho AI...')
-            const { data } = await axios.post('/api/ai/generate', formData, {
+            const { data } = await api.post('/api/ai/generate', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 timeout: 120000 // 2 min
             })
@@ -100,7 +100,7 @@ export default function AIGenerator({ navigate, ctx }) {
         setLoadingMsg('AI đang chỉnh sửa...')
 
         try {
-            const { data } = await axios.post('/api/ai/refine', {
+            const { data } = await api.post('/api/ai/refine', {
                 steps: editSteps,
                 feedback,
                 url
@@ -135,7 +135,7 @@ export default function AIGenerator({ navigate, ctx }) {
                 }))
             }
 
-            await axios.post('/api/test-cases', payload)
+            await api.post('/api/test-cases', payload)
             toast.success('Đã lưu Test Case!')
             navigate('editor')
         } catch (err) {

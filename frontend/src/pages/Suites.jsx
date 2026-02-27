@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../api/client'
 import toast from 'react-hot-toast'
 import { Plus, Trash2, Play, Edit2, FileSpreadsheet } from 'lucide-react'
 
@@ -9,16 +9,16 @@ export default function Suites({ navigate }) {
     const [form, setForm] = useState({ name: '', description: '' })
     const [editId, setEditId] = useState(null)
 
-    const load = () => axios.get('/api/test-suites').then(r => setSuites(r.data))
+    const load = () => api.get('/api/test-suites').then(r => setSuites(r.data))
     useEffect(() => { load() }, [])
 
     const save = async () => {
         if (!form.name.trim()) return toast.error('Vui lòng nhập tên Suite')
         if (editId) {
-            await axios.put(`/api/test-suites/${editId}`, form)
+            await api.put(`/api/test-suites/${editId}`, form)
             toast.success('Đã cập nhật suite')
         } else {
-            await axios.post('/api/test-suites', form)
+            await api.post('/api/test-suites', form)
             toast.success('Đã tạo suite mới')
         }
         setShowModal(false); setForm({ name: '', description: '' }); setEditId(null); load()
@@ -26,7 +26,7 @@ export default function Suites({ navigate }) {
 
     const del = async (id, name) => {
         if (!confirm(`Xóa suite "${name}"? Tất cả test case trong suite sẽ bị xóa.`)) return
-        await axios.delete(`/api/test-suites/${id}`)
+        await api.delete(`/api/test-suites/${id}`)
         toast.success('Đã xóa'); load()
     }
 

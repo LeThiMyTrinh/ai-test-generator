@@ -22,7 +22,14 @@ const io = new Server(server, { cors: { origin: '*' } });
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
 });
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://api-testing.support247.top',
+    'https://testing.support247.top',
+    'http:localhost:3000'
+  ],
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -65,7 +72,7 @@ app.get('*', (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8386;
 server.listen(PORT, () => {
     console.log(`✅ Automation Tool Backend running at http://localhost:${PORT}`);
 });

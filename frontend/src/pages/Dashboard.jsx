@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api, { apiUrl } from '../api/client'
 import { Doughnut, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement, Filler } from 'chart.js'
 import { PlayCircle, Plus } from 'lucide-react'
@@ -11,8 +11,8 @@ export default function Dashboard({ navigate }) {
     const [runs, setRuns] = useState([])
 
     useEffect(() => {
-        axios.get('/api/test-suites').then(r => setSuites(r.data))
-        axios.get('/api/runs').then(r => setRuns(r.data.slice(0, 20)))
+        api.get('/api/test-suites').then(r => setSuites(r.data))
+        api.get('/api/runs').then(r => setRuns(r.data.slice(0, 20)))
     }, [])
 
     const totalTC = suites.reduce((a, s) => a + (s.tc_count || 0), 0)
@@ -105,8 +105,8 @@ export default function Dashboard({ navigate }) {
                                             <td>
                                                 {r.status === 'DONE' && (
                                                     <div className="flex gap-2">
-                                                        <a className="btn btn-ghost btn-sm" href={`/api/reports/${r.id}/html`} target="_blank">HTML</a>
-                                                        <a className="btn btn-ghost btn-sm" href={`/api/reports/${r.id}/pdf`} target="_blank">PDF</a>
+                                                        <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${r.id}/html`)} target="_blank">HTML</a>
+                                                        <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${r.id}/pdf`)} target="_blank">PDF</a>
                                                     </div>
                                                 )}
                                             </td>
