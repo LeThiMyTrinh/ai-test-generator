@@ -23,7 +23,7 @@ const DEVICE_OPTIONS = [
     { value: 'iphone-se', label: '📱 iPhone SE (375×667)' },
     { value: 'pixel-7', label: '📱 Pixel 7 (412×915)' },
     { value: 'pixel-5', label: '📱 Pixel 5 (393×851)' },
-    { value: 'galaxy-s23', label: '📱 Galaxy S23 (360×780)' },
+    { value: 'galaxy-s24', label: '📱 Galaxy S24 (360×780)' },
     { value: 'galaxy-s9', label: '📱 Galaxy S9+ (320×658)' },
     { value: 'ipad-pro', label: '📟 iPad Pro 11 (834×1194)' },
     { value: 'ipad-mini', label: '📟 iPad Mini (768×1024)' },
@@ -134,7 +134,9 @@ export default function TestCaseEditor({ navigate, ctx }) {
         const fd = new FormData(); fd.append('file', file); fd.append('suite_id', selectedSuite)
         setUploading(true)
         try {
-            const r = await api.post('/api/test-cases/import/excel', fd)
+            const r = await api.post('/api/test-cases/import/excel', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
             toast.success(`Đã import ${r.data.imported} test case`)
             if (r.data.warnings && r.data.warnings.length > 0) {
                 r.data.warnings.forEach(w => {
@@ -198,7 +200,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                         <td className="text-sm text-muted" style={{ maxWidth: 200, wordBreak: 'break-all' }}>{tc.url}</td>
                                         <td>
                                             <span className="badge badge-running">{tc.browser || 'chromium'}</span>
-                                            {tc.device && <span className="badge" style={{ marginLeft: 4, background: 'var(--primary-light, #eff6ff)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>📱 {DEVICE_OPTIONS.find(d => d.value === tc.device)?.label.replace(/^📱|^📟/, '').trim() || tc.device}</span>}
+                                            {tc.device && <span className="badge" style={{ marginLeft: 4, background: 'var(--primary-light, #eff6ff)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>📱 {DEVICE_OPTIONS.find(d => d.value === tc.device)?.label.replace(/^📱|^📟/, '').trim() || tc.device.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>}
                                         </td>
                                         <td>{(tc.steps || []).length} bước</td>
                                         <td>

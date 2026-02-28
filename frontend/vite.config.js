@@ -10,10 +10,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:3001',
-      '/evidence': 'http://localhost:3001',
-      '/reports': { target: 'http://localhost:3001', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:3001', ws: true }
+      '/api': 'http://localhost:8386',
+      '/evidence': 'http://localhost:8386',
+      '/reports': { target: 'http://localhost:8386', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:8386', ws: true }
     }
   }
 })

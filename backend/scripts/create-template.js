@@ -76,7 +76,7 @@ const guideData = [
     ['', 'iphone-se', 'iPhone SE (375×667)'],
     ['', 'pixel-7', 'Pixel 7 (412×915)'],
     ['', 'pixel-5', 'Pixel 5 (393×851)'],
-    ['', 'galaxy-s23', 'Galaxy S23 (360×780)'],
+    ['', 'galaxy-s24', 'Galaxy S24 (360×780)'],
     ['', 'galaxy-s9', 'Galaxy S9+ (320×658)'],
     ['', 'ipad-pro', 'iPad Pro 11 (834×1194)'],
     ['', 'ipad-mini', 'iPad Mini (768×1024)'],

@@ -17,7 +17,7 @@ const DEVICE_MAP = {
     // Android
     'pixel-7': 'Pixel 7',
     'pixel-5': 'Pixel 5',
-    'galaxy-s23': 'Galaxy S23',
+    'galaxy-s24': 'Galaxy S24',
     'galaxy-s9': 'Galaxy S9+',
     // Tablet
     'ipad-pro': 'iPad Pro 11',
@@ -52,6 +52,9 @@ class TestRunner {
                 recordVideo: { dir: evidence.dir, size: devices[playwrightDeviceName].viewport }
             };
         } else {
+            if (device) {
+                console.warn(`[TestRunner] ⚠️ Device "${device}" (resolved: "${playwrightDeviceName}") not found in Playwright registry. Falling back to desktop viewport.`);
+            }
             contextOptions = {
                 recordVideo: { dir: evidence.dir, size: { width: 1920, height: 1080 } },
                 viewport: { width: 1920, height: 1080 },
