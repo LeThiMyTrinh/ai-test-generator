@@ -7,10 +7,12 @@ import { PlayCircle, Plus } from 'lucide-react'
 ChartJS.register(ArcElement, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement, Filler)
 
 export default function Dashboard({ navigate }) {
+    const [projects, setProjects] = useState([])
     const [suites, setSuites] = useState([])
     const [runs, setRuns] = useState([])
 
     useEffect(() => {
+        api.get('/api/projects').then(r => setProjects(r.data))
         api.get('/api/test-suites').then(r => setSuites(r.data))
         api.get('/api/runs').then(r => setRuns(r.data.slice(0, 20)))
     }, [])
@@ -40,16 +42,16 @@ export default function Dashboard({ navigate }) {
     }
 
     const statusBadge = (s) => {
-        const map = { DONE: 'badge-pass', RUNNING: 'badge-running', ERROR: 'badge-error', RUNNING: 'badge-running' }
+        const map = { DONE: 'badge-pass', RUNNING: 'badge-running', ERROR: 'badge-error' }
         return <span className={`badge ${map[s] || 'badge-error'}`}>{s}</span>
     }
 
     return (
         <div>
             <div className="kpi-grid">
-                <div className="kpi-card total"><div className="num">{suites.length}</div><div className="lbl">Test Suites</div></div>
-                <div className="kpi-card pass"><div className="num">{totalTC}</div><div className="lbl">Test Cases</div></div>
-                <div className="kpi-card fail"><div className="num">{runs.length}</div><div className="lbl">Lần chạy</div></div>
+                <div className="kpi-card total"><div className="num">{projects.length}</div><div className="lbl">Dự án</div></div>
+                <div className="kpi-card pass"><div className="num">{suites.length}</div><div className="lbl">Test Suites</div></div>
+                <div className="kpi-card fail"><div className="num">{totalTC}</div><div className="lbl">Test Cases</div></div>
                 <div className="kpi-card rate"><div className="num">{passRate}%</div><div className="lbl">Tỉ lệ Pass</div></div>
             </div>
 
@@ -66,16 +68,17 @@ export default function Dashboard({ navigate }) {
 
             <div className="flex justify-between items-center mb-4">
                 <div className="font-bold" style={{ fontSize: 15 }}>🗂️ Danh sách Test Suite</div>
-                <button className="btn btn-primary btn-sm" onClick={() => navigate('suites')}><Plus size={14} /> Tạo Suite mới</button>
+                <button className="btn btn-primary btn-sm" onClick={() => navigate('projects')}><Plus size={14} /> Quản lý Dự án</button>
             </div>
             <div className="card table-wrap">
                 <table>
-                    <thead><tr><th>Tên Suite</th><th>Số Test Case</th><th>Mô tả</th><th>Ngày tạo</th><th></th></tr></thead>
+                    <thead><tr><th>Tên Suite</th><th>Dự án</th><th>Số Test Case</th><th>Mô tả</th><th>Ngày tạo</th><th></th></tr></thead>
                     <tbody>
-                        {suites.length === 0 && <tr><td colSpan={5}><div className="empty-state"><p>Chưa có Test Suite nào. Bắt đầu tạo mới!</p></div></td></tr>}
+                        {suites.length === 0 && <tr><td colSpan={6}><div className="empty-state"><p>Chưa có Test Suite nào. Bắt đầu tạo mới!</p></div></td></tr>}
                         {suites.map(s => (
                             <tr key={s.id}>
                                 <td><strong>{s.name}</strong></td>
+                                <td className="text-sm">{s.project_name || '—'}</td>
                                 <td>{s.tc_count || 0}</td>
                                 <td className="text-muted">{s.description || '—'}</td>
                                 <td className="text-muted text-sm">{new Date(s.created_at).toLocaleDateString('vi-VN')}</td>

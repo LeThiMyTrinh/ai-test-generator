@@ -3,6 +3,8 @@ import api, { apiUrl } from '../api/client'
 import { FileDown, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 
 export default function History({ navigate, ctx }) {
+    const [projects, setProjects] = useState([])
+    const [selectedProject, setSelectedProject] = useState('')
     const [suites, setSuites] = useState([])
     const [selectedSuite, setSelectedSuite] = useState('')
     const [runs, setRuns] = useState([])
@@ -12,11 +14,48 @@ export default function History({ navigate, ctx }) {
     const [selectedRuns, setSelectedRuns] = useState(new Set())
     const [deleting, setDeleting] = useState(false)
 
-    useEffect(() => { api.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
+    // Load projects
+    useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
+
+    // Load suites filtered by project
     useEffect(() => {
-        const url = selectedSuite ? `/api/runs?suite_id=${selectedSuite}` : '/api/runs'
-        api.get(url).then(r => setRuns(r.data))
-    }, [selectedSuite])
+        const url = selectedProject ? `/api/test-suites?project_id=${selectedProject}` : '/api/test-suites'
+        api.get(url).then(r => setSuites(r.data))
+    }, [selectedProject])
+
+    // Load runs — single function handles all filter cases
+    const loadRuns = async () => {
+        try {
+            let filteredRuns
+            if (selectedSuite) {
+                // Suite selected → filter by suite_id
+                const r = await api.get(`/api/runs?suite_id=${selectedSuite}`)
+                filteredRuns = r.data
+            } else if (selectedProject) {
+                // Project selected, no suite → get all suites for project, filter runs by those suiteIds
+                const suitesRes = await api.get(`/api/test-suites?project_id=${selectedProject}`)
+                const suiteIds = suitesRes.data.map(s => s.id)
+                const runsRes = await api.get('/api/runs')
+                filteredRuns = runsRes.data.filter(run => suiteIds.includes(run.suite_id))
+            } else {
+                // Nothing selected → all runs
+                const r = await api.get('/api/runs')
+                filteredRuns = r.data
+            }
+            setRuns(filteredRuns)
+        } catch (err) {
+            setRuns([])
+        }
+        setSelectedRuns(new Set())
+    }
+
+    useEffect(() => { loadRuns() }, [selectedSuite, selectedProject])
+
+    // Reset suite when project changes
+    const handleProjectChange = (projectId) => {
+        setSelectedProject(projectId)
+        setSelectedSuite('')
+    }
 
     const toggleExpand = async (runId) => {
         setExpanded(p => ({ ...p, [runId]: !p[runId] }))
@@ -31,7 +70,6 @@ export default function History({ navigate, ctx }) {
         return <span className={`badge ${cls[s] || 'badge-error'}`}>{s}</span>
     }
 
-    // Toggle checkbox for a single run
     const toggleSelect = (runId, e) => {
         e.stopPropagation()
         setSelectedRuns(prev => {
@@ -42,7 +80,6 @@ export default function History({ navigate, ctx }) {
         })
     }
 
-    // Toggle select all
     const toggleSelectAll = () => {
         if (selectedRuns.size === runs.length) {
             setSelectedRuns(new Set())
@@ -51,7 +88,6 @@ export default function History({ navigate, ctx }) {
         }
     }
 
-    // Delete a single run
     const deleteSingleRun = async (runId, e) => {
         e.stopPropagation()
         if (!confirm(`Bạn có chắc muốn xóa run "${runId}"?\nDữ liệu kết quả và evidence sẽ bị xóa vĩnh viễn.`)) return
@@ -68,7 +104,6 @@ export default function History({ navigate, ctx }) {
         setDeleting(false)
     }
 
-    // Bulk delete selected runs
     const deleteSelectedRuns = async () => {
         const ids = Array.from(selectedRuns)
         if (ids.length === 0) return
@@ -94,13 +129,22 @@ export default function History({ navigate, ctx }) {
             )}
 
             <div className="card" style={{ padding: 16, marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                    <div style={{ maxWidth: 360 }}>
-                        <label className="form-label">Lọc theo Suite</label>
-                        <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
-                            <option value="">-- Tất cả Suite --</option>
-                            {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div className="flex gap-3" style={{ flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: 200 }}>
+                            <label className="form-label">Lọc theo Dự án</label>
+                            <select className="form-control" value={selectedProject} onChange={e => handleProjectChange(e.target.value)}>
+                                <option value="">-- Tất cả Dự án --</option>
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        </div>
+                        <div style={{ minWidth: 200 }}>
+                            <label className="form-label">Lọc theo Suite</label>
+                            <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
+                                <option value="">-- Tất cả Suite --</option>
+                                {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                        </div>
                     </div>
                     {runs.length > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -138,7 +182,6 @@ export default function History({ navigate, ctx }) {
                 return (
                     <div key={run.id} className="card" style={{ marginBottom: 12, overflow: 'hidden', border: selectedRuns.has(run.id) ? '2px solid var(--primary)' : undefined }}>
                         <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }} onClick={() => toggleExpand(run.id)}>
-                            {/* Checkbox */}
                             <input
                                 type="checkbox"
                                 checked={selectedRuns.has(run.id)}
@@ -165,7 +208,6 @@ export default function History({ navigate, ctx }) {
                                     <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${run.id}/pdf`)} target="_blank">PDF</a>
                                 </div>
                             )}
-                            {/* Delete button */}
                             <button
                                 className="btn btn-ghost btn-sm"
                                 onClick={(e) => deleteSingleRun(run.id, e)}

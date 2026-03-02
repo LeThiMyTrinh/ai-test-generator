@@ -15,7 +15,10 @@ router.setIO = (io) => { io_ref = io; };
 router.get('/', async (req, res) => {
     try {
         const { suite_id } = req.query;
-        const query = suite_id ? { suite_id } : {};
+        let query = suite_id ? { suite_id } : {};
+        if (req.user.role !== 'ADMIN') {
+            query.created_by = req.user.email;
+        }
         const runs = await db.runs.find(query).sort({ started_at: -1 }).limit(100);
         res.json(runs);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -26,6 +29,7 @@ router.get('/:id', async (req, res) => {
     try {
         const run = await db.runs.findOne({ id: req.params.id });
         if (!run) return res.status(404).json({ error: 'Not found' });
+        if (req.user.role !== 'ADMIN' && run.created_by !== req.user.email) return res.status(403).json({ error: 'Không có quyền' });
         const results = await db.results.find({ run_id: req.params.id }).sort({ _id: 1 });
         res.json({ ...run, results });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -43,7 +47,6 @@ router.post('/', async (req, res) => {
         let testCases = await db.testCases.find({ suite_id }).sort({ created_at: 1 });
         if (testCases.length === 0) return res.status(400).json({ error: 'Suite has no test cases' });
 
-        // Nếu có truyền test_case_ids thì chỉ chạy những TC được chọn
         if (Array.isArray(test_case_ids) && test_case_ids.length > 0) {
             testCases = testCases.filter(tc => test_case_ids.includes(tc.id));
             if (testCases.length === 0) return res.status(400).json({ error: 'Không có test case hợp lệ nào được chọn' });
@@ -51,7 +54,7 @@ router.post('/', async (req, res) => {
 
         const runId = 'RUN-' + Date.now();
         const startedAt = new Date().toISOString();
-        await db.runs.insert({ id: runId, suite_id, started_at: startedAt, status: 'RUNNING', summary_json: null });
+        await db.runs.insert({ id: runId, suite_id, created_by: req.user.email, started_at: startedAt, status: 'RUNNING', summary_json: null });
 
         res.json({ run_id: runId, status: 'RUNNING', total: testCases.length });
 
@@ -84,7 +87,6 @@ router.post('/', async (req, res) => {
 async function deleteRunData(runId) {
     await db.runs.remove({ id: runId }, {});
     const removedResults = await db.results.remove({ run_id: runId }, { multi: true });
-    // Remove evidence folder
     const evidenceDir = path.join(EVIDENCE_BASE, runId);
     if (fs.existsSync(evidenceDir)) {
         fs.rmSync(evidenceDir, { recursive: true, force: true });
@@ -97,6 +99,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const run = await db.runs.findOne({ id: req.params.id });
         if (!run) return res.status(404).json({ error: 'Run not found' });
+        if (req.user.role !== 'ADMIN' && run.created_by !== req.user.email) return res.status(403).json({ error: 'Không có quyền' });
         await deleteRunData(req.params.id);
         res.json({ deleted: 1, id: req.params.id });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -113,6 +116,7 @@ router.post('/bulk-delete', async (req, res) => {
         for (const id of ids) {
             const run = await db.runs.findOne({ id });
             if (run) {
+                if (req.user.role !== 'ADMIN' && run.created_by !== req.user.email) continue;
                 await deleteRunData(id);
                 deleted++;
             }

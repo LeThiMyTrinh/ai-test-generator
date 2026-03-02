@@ -1,10 +1,5 @@
 import axios from 'axios'
 
-/**
- * Base URL của API. Cấu hình qua biến môi trường VITE_API_BASE_URL.
- * - Để trống hoặc không set: gọi tương đối (dùng Vite proxy trong dev).
- * - Ví dụ production: https://api.example.com
- */
 const baseURL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
 const api = axios.create({
@@ -13,13 +8,34 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-/**
- * Trả về URL đầy đủ cho path API (dùng cho href, download, iframe...).
- * @param {string} path - Đường dẫn bắt đầu bằng /api/... hoặc /evidence/..., /reports/...
- */
+// Interceptor: attach auth token to every request
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('auth_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Interceptor: handle 401 → logout
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token')
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)
+
 export function apiUrl(path) {
   const p = path.startsWith('/') ? path : `/${path}`
-  return baseURL ? `${baseURL}${p}` : p
+  // For download links, append token as query param
+  const token = localStorage.getItem('auth_token')
+  const sep = p.includes('?') ? '&' : '?'
+  const authParam = token ? `${sep}token=${token}` : ''
+  return baseURL ? `${baseURL}${p}${authParam}` : `${p}${authParam}`
 }
 
 export default api

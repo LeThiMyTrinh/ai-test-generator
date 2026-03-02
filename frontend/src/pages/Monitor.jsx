@@ -8,20 +8,31 @@ let socket = null
 
 export default function Monitor({ navigate, ctx }) {
     const { suite_id, suite_name } = ctx || {}
+    const [projects, setProjects] = useState([])
+    const [selectedProject, setSelectedProject] = useState('')
     const [suites, setSuites] = useState([])
     const [selectedSuite, setSelectedSuite] = useState(suite_id || '')
-    const [suiteTestCases, setSuiteTestCases] = useState([])   // Danh sách TC của suite đang chọn
-    const [selectedTcIds, setSelectedTcIds] = useState([])     // Danh sách TC được tick
+    const [suiteTestCases, setSuiteTestCases] = useState([])
+    const [selectedTcIds, setSelectedTcIds] = useState([])
     const [runId, setRunId] = useState(null)
-    const [status, setStatus] = useState('idle') // idle | running | done | error
-    const [tcResults, setTcResults] = useState({}) // tcId -> { title, status, steps: [] }
+    const [status, setStatus] = useState('idle')
+    const [tcResults, setTcResults] = useState({})
     const [summary, setSummary] = useState(null)
     const [progress, setProgress] = useState({ done: 0, total: 0 })
     const [lightbox, setLightbox] = useState(null)
     const logRef = useRef()
 
+    // Load projects
+    useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
+
+    // Load suites (filtered by project)
     useEffect(() => {
-        api.get('/api/test-suites').then(r => setSuites(r.data))
+        const url = selectedProject ? `/api/test-suites?project_id=${selectedProject}` : '/api/test-suites'
+        api.get(url).then(r => setSuites(r.data))
+    }, [selectedProject])
+
+    // Socket.IO
+    useEffect(() => {
         socket = io(window.location.origin)
         socket.on('tc_start', ({ tcId, title }) => {
             setTcResults(p => ({ ...p, [tcId]: { title, status: 'RUNNING', steps: [] } }))
@@ -48,13 +59,21 @@ export default function Monitor({ navigate, ctx }) {
         api.get(`/api/test-cases?suite_id=${selectedSuite}`)
             .then(r => {
                 setSuiteTestCases(r.data)
-                setSelectedTcIds(r.data.map(tc => tc.id)) // Mặc định chọn tất cả
+                setSelectedTcIds(r.data.map(tc => tc.id))
             })
             .catch(() => {
                 setSuiteTestCases([])
                 setSelectedTcIds([])
             })
     }, [selectedSuite])
+
+    // Reset selected suite when project changes
+    useEffect(() => {
+        if (selectedProject && selectedSuite) {
+            const suiteInProject = suites.find(s => s.id === selectedSuite)
+            if (!suiteInProject) setSelectedSuite('')
+        }
+    }, [suites])
 
     const allChecked = suiteTestCases.length > 0 && selectedTcIds.length === suiteTestCases.length
     const someChecked = selectedTcIds.length > 0 && selectedTcIds.length < suiteTestCases.length
@@ -107,8 +126,15 @@ export default function Monitor({ navigate, ctx }) {
 
             {/* Controls */}
             <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-                <div className="flex gap-3 items-center">
-                    <div style={{ flex: 1 }}>
+                <div className="flex gap-3 items-center" style={{ flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 200 }}>
+                        <label className="form-label">Lọc theo Dự án</label>
+                        <select className="form-control" value={selectedProject} onChange={e => { setSelectedProject(e.target.value); setSelectedSuite('') }} disabled={status === 'running'}>
+                            <option value="">-- Tất cả Dự án --</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 200 }}>
                         <label className="form-label">Chọn Test Suite để chạy</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} disabled={status === 'running'}>
                             <option value="">-- Chọn Suite --</option>
@@ -196,7 +222,7 @@ export default function Monitor({ navigate, ctx }) {
             {/* Live test results */}
             <div>
                 {tcList.length === 0 && status === 'idle' && (
-                    <div className="empty-state"><PlayCircle size={48} /><p>Chọn suite, tick các Test Case cần chạy và nhấn "Bắt đầu chạy" để xem kết quả real-time tại đây</p></div>
+                    <div className="empty-state"><PlayCircle size={48} /><p>Chọn Dự án, Suite, tick các Test Case cần chạy và nhấn "Bắt đầu chạy" để xem kết quả real-time tại đây</p></div>
                 )}
                 {tcList.map(([tcId, tc]) => (
                     <div key={tcId} className={`monitor-tc ${tc.status}`}>

@@ -5,12 +5,15 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
+const authRouter = require('./api/auth');
 const suitesRouter = require('./api/suites');
+const projectsRouter = require('./api/projects');
 const testCasesRouter = require('./api/testcases');
 const runsRouter = require('./api/runs');
 const reportsRouter = require('./api/reports');
 const nlparserRouter = require('./api/nlparser');
 const aiRouter = require('./api/ai');
+const { requireAuth } = require('./middleware/authMiddleware');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,12 +26,13 @@ const io = new Server(server, { cors: { origin: '*' } });
 });
 
 app.use(cors({
-  origin: [
-    'https://api-testing.support247.top',
-    'https://testing.support247.top',
-    'http:localhost:3000'
-  ],
-  credentials: true
+    origin: [
+        'https://api-testing.support247.top',
+        'https://testing.support247.top',
+        'http://localhost:3000',
+        'http://localhost:5173'
+    ],
+    credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -46,13 +50,17 @@ if (fs.existsSync(FRONTEND_DIST)) {
 // Inject socket.io into runs router
 runsRouter.setIO(io);
 
-// API routes
-app.use('/api/test-suites', suitesRouter);
-app.use('/api/test-cases', testCasesRouter);
-app.use('/api/runs', runsRouter);
-app.use('/api/reports', reportsRouter);
-app.use('/api/nl-parser', nlparserRouter);
-app.use('/api/ai', aiRouter);
+// Auth routes (public — no token required)
+app.use('/api/auth', authRouter);
+
+// Protected API routes (require auth token)
+app.use('/api/projects', requireAuth, projectsRouter);
+app.use('/api/test-suites', requireAuth, suitesRouter);
+app.use('/api/test-cases', requireAuth, testCasesRouter);
+app.use('/api/runs', requireAuth, runsRouter);
+app.use('/api/reports', requireAuth, reportsRouter);
+app.use('/api/nl-parser', requireAuth, nlparserRouter);
+app.use('/api/ai', requireAuth, aiRouter);
 
 // Socket.IO connection
 io.on('connection', (socket) => {

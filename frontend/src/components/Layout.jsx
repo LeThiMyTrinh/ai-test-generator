@@ -1,8 +1,10 @@
-import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles } from 'lucide-react'
+import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 const NAV = [
     { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-    { id: 'suites', label: 'Quản lý Test Suite', Icon: FlaskConical },
+    { id: 'projects', label: 'Quản lý Dự án', Icon: FolderOpen },
+    { id: 'suites', label: 'Test Suites', Icon: FlaskConical },
     { id: 'editor', label: 'Tạo Test Case', Icon: ClipboardList },
     { id: 'ai-generator', label: 'Tạo TC bằng AI', Icon: Sparkles },
     { id: 'monitor', label: 'Live Monitor', Icon: Activity },
@@ -10,6 +12,8 @@ const NAV = [
 ]
 
 export default function Layout({ children, page, navigate, title }) {
+    const { user, logout } = useAuth()
+
     return (
         <div className="layout">
             <aside className="sidebar">
@@ -25,6 +29,20 @@ export default function Layout({ children, page, navigate, title }) {
                         </button>
                     ))}
                 </nav>
+                {/* User info footer */}
+                <div className="sidebar-footer">
+                    <div className="sidebar-user">
+                        <div className="sidebar-user-info">
+                            <div className="sidebar-user-email">{user?.email}</div>
+                            {user?.role === 'ADMIN' && (
+                                <span className="sidebar-admin-badge"><Shield size={11} /> Admin</span>
+                            )}
+                        </div>
+                        <button className="sidebar-logout" onClick={logout} title="Đăng xuất">
+                            <LogOut size={16} />
+                        </button>
+                    </div>
+                </div>
             </aside>
             <div className="main">
                 <div className="topbar">

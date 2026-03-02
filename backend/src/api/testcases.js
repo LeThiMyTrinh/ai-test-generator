@@ -29,6 +29,59 @@ router.get('/template/download', (req, res) => {
     res.download(templatePath, 'testcase_template.xlsx');
 });
 
+// GET export test cases as Excel
+router.get('/export/excel', async (req, res) => {
+    try {
+        const { suite_id } = req.query;
+        if (!suite_id) return res.status(400).json({ error: 'suite_id required' });
+        const testCases = await db.testCases.find({ suite_id }).sort({ created_at: 1 });
+        if (testCases.length === 0) return res.status(404).json({ error: 'Không có test case nào trong suite này' });
+
+        const XLSX = require('xlsx');
+        const rows = [];
+        for (const tc of testCases) {
+            const steps = typeof tc.steps_json === 'string' ? JSON.parse(tc.steps_json) : (tc.steps_json || []);
+            if (steps.length === 0) {
+                rows.push({
+                    tc_id: tc.id,
+                    tieu_de: tc.title,
+                    url: tc.url,
+                    trinh_duyet: tc.browser || 'chromium',
+                    thiet_bi: tc.device || '',
+                    buoc_thuc_hien: ''
+                });
+            } else {
+                steps.forEach((step, i) => {
+                    rows.push({
+                        tc_id: i === 0 ? tc.id : '',
+                        tieu_de: i === 0 ? tc.title : '',
+                        url: i === 0 ? tc.url : '',
+                        trinh_duyet: i === 0 ? (tc.browser || 'chromium') : '',
+                        thiet_bi: i === 0 ? (tc.device || '') : '',
+                        buoc_thuc_hien: step.description || `${step.action}: ${step.selector || step.value || ''}`
+                    });
+                });
+            }
+        }
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 16 }, { wch: 30 }, { wch: 35 }, { wch: 12 }, { wch: 14 }, { wch: 50 },
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, 'TestCases');
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        const suite = await db.suites.findOne({ id: suite_id });
+        const suiteName = suite ? suite.name.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F\u1E00-\u1EFF ]/g, '').trim().replace(/\s+/g, '_') : suite_id;
+        const filename = `TestCases_${suiteName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+        res.send(buf);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/:id', async (req, res) => {
     try {
         const tc = await db.testCases.findOne({ id: req.params.id });
@@ -43,7 +96,7 @@ router.post('/', async (req, res) => {
         const { suite_id, title, description, url, browser, device, steps } = req.body;
         if (!suite_id || !title || !url || !steps) return res.status(400).json({ error: 'suite_id, title, url, steps required' });
         const id = 'TC-' + uuidv4().slice(0, 8).toUpperCase();
-        const doc = { id, suite_id, title, description: description || '', url, browser: browser || 'chromium', device: device || null, steps_json: JSON.stringify(steps), created_at: new Date().toISOString() };
+        const doc = { id, suite_id, title, description: description || '', url, browser: browser || 'chromium', device: device || null, steps_json: JSON.stringify(steps), created_by: req.user.email, created_at: new Date().toISOString() };
         await db.testCases.insert(doc);
         res.status(201).json({ id, title });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -66,6 +119,29 @@ router.delete('/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST clone test case
+router.post('/:id/clone', async (req, res) => {
+    try {
+        const original = await db.testCases.findOne({ id: req.params.id });
+        if (!original) return res.status(404).json({ error: 'Test case not found' });
+        const newId = 'TC-' + uuidv4().slice(0, 8).toUpperCase();
+        const doc = {
+            id: newId,
+            suite_id: original.suite_id,
+            title: original.title + ' (Copy)',
+            description: original.description || '',
+            url: original.url,
+            browser: original.browser || 'chromium',
+            device: original.device || null,
+            steps_json: original.steps_json,
+            created_by: req.user.email,
+            created_at: new Date().toISOString()
+        };
+        await db.testCases.insert(doc);
+        res.status(201).json(doc);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // POST import from Excel
 router.post('/import/excel', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -78,7 +154,7 @@ router.post('/import/excel', upload.single('file'), async (req, res) => {
         const ids = [];
         for (const tc of testCases) {
             const id = 'TC-' + uuidv4().slice(0, 8).toUpperCase();
-            await db.testCases.insert({ id, suite_id, title: tc.title, description: tc.description || '', url: tc.url, browser: tc.browser || 'chromium', device: tc.device || null, steps_json: JSON.stringify(tc.steps), created_at: new Date().toISOString() });
+            await db.testCases.insert({ id, suite_id, title: tc.title, description: tc.description || '', url: tc.url, browser: tc.browser || 'chromium', device: tc.device || null, steps_json: JSON.stringify(tc.steps), created_by: req.user.email, created_at: new Date().toISOString() });
             ids.push(id);
         }
         fs.unlinkSync(req.file.path);

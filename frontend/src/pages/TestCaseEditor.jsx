@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import api, { apiUrl } from '../api/client'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Copy } from 'lucide-react'
 
 const ACTIONS = ['navigate', 'click', 'fill', 'select', 'hover', 'assert_text', 'assert_visible', 'assert_url', 'wait', 'screenshot']
 
@@ -45,7 +45,9 @@ Chờ 2 giây
 Chụp ảnh màn hình`
 
 export default function TestCaseEditor({ navigate, ctx }) {
-    const { suite_id, suite_name } = ctx || {}
+    const { suite_id, suite_name, project_id, project_name } = ctx || {}
+    const [projects, setProjects] = useState([])
+    const [selectedProject, setSelectedProject] = useState(project_id || '')
     const [suites, setSuites] = useState([])
     const [selectedSuite, setSelectedSuite] = useState(suite_id || '')
     const [testCases, setTestCases] = useState([])
@@ -58,9 +60,26 @@ export default function TestCaseEditor({ navigate, ctx }) {
     const [converting, setConverting] = useState(false)
     const [warnings, setWarnings] = useState([])
     const [showPreview, setShowPreview] = useState(false)
+    const [search, setSearch] = useState('')
     const fileRef = useRef()
 
-    useEffect(() => { api.get('/api/test-suites').then(r => setSuites(r.data)) }, [])
+    // Load projects
+    useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
+
+    // Load suites filtered by project
+    useEffect(() => {
+        const url = selectedProject ? `/api/test-suites?project_id=${selectedProject}` : '/api/test-suites'
+        api.get(url).then(r => setSuites(r.data))
+    }, [selectedProject])
+
+    // Reset suite when project changes (only if current suite doesn't belong to new project)
+    useEffect(() => {
+        if (selectedProject && selectedSuite) {
+            const suiteInProject = suites.find(s => s.id === selectedSuite)
+            if (!suiteInProject) setSelectedSuite('')
+        }
+    }, [suites])
+
     useEffect(() => { if (selectedSuite) loadTCs() }, [selectedSuite])
 
     const loadTCs = () => api.get(`/api/test-cases?suite_id=${selectedSuite}`).then(r => setTestCases(r.data))
@@ -117,6 +136,16 @@ export default function TestCaseEditor({ navigate, ctx }) {
         await api.delete(`/api/test-cases/${id}`); toast.success('Đã xóa'); loadTCs()
     }
 
+    const cloneTC = async (id) => {
+        try {
+            await api.post(`/api/test-cases/${id}/clone`)
+            toast.success('Đã tạo bản sao test case')
+            loadTCs()
+        } catch (e) {
+            toast.error(e.response?.data?.error || 'Lỗi khi clone')
+        }
+    }
+
     const openEdit = (tc) => {
         setEditId(tc.id)
         const nlLines = (tc.steps || []).map(s => s.description || `${s.action}: ${s.selector || s.value || ''}`).join('\n')
@@ -151,21 +180,44 @@ export default function TestCaseEditor({ navigate, ctx }) {
     const needsValue = ['fill', 'select', 'navigate', 'wait']
     const needsExpected = ['assert_text', 'assert_url']
 
+    const filteredTCs = testCases.filter(tc => tc.title.toLowerCase().includes(search.toLowerCase()))
+
     return (
         <div>
-            {/* Suite selector */}
+            {/* Breadcrumb */}
+            <div className="breadcrumb mb-4">
+                <button className="breadcrumb-item" onClick={() => navigate('projects')}>📁 Dự án</button>
+                <ChevronRight size={14} className="breadcrumb-sep" />
+                {project_name ? (
+                    <button className="breadcrumb-item" onClick={() => navigate('suites', { project_id, project_name })}>{project_name}</button>
+                ) : (
+                    <button className="breadcrumb-item" onClick={() => navigate('suites')}>Test Suites</button>
+                )}
+                <ChevronRight size={14} className="breadcrumb-sep" />
+                <span className="breadcrumb-item active">{suite_name || 'Test Cases'}</span>
+            </div>
+
+            {/* Filter bar: Project → Suite */}
             <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-                <div className="flex gap-3 items-center">
-                    <div style={{ flex: 1 }}>
+                <div className="flex gap-3 items-center" style={{ flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 200 }}>
+                        <label className="form-label">Chọn Dự án</label>
+                        <select className="form-control" value={selectedProject} onChange={e => { setSelectedProject(e.target.value); setSelectedSuite(''); setTestCases([]) }}>
+                            <option value="">-- Tất cả Dự án --</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ minWidth: 200, flex: 1 }}>
                         <label className="form-label">Chọn Test Suite</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
                             <option value="">-- Chọn Suite --</option>
-                            {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} TC)</option>)}
                         </select>
                     </div>
                     {selectedSuite && (
                         <div className="flex gap-2" style={{ marginTop: 22 }}>
                             <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(emptyTC()); setTabMode('nl'); setShowPreview(false); setWarnings([]); setShowForm(true) }}><Plus size={15} /> Thêm TC</button>
+                            <a className="btn btn-outline" href={apiUrl(`/api/test-cases/export/excel?suite_id=${selectedSuite}`)} download title="Tải test cases về dạng Excel"><Download size={15} /> Xuất Excel</a>
                             <a className="btn btn-ghost" href={apiUrl('/api/test-cases/template/download')} download title="Tải file mẫu Excel"><Download size={15} /> File mẫu</a>
                         </div>
                     )}
@@ -174,6 +226,20 @@ export default function TestCaseEditor({ navigate, ctx }) {
 
             {selectedSuite && (
                 <>
+                    {/* Search bar */}
+                    <div className="flex gap-3 items-center mb-4">
+                        <div style={{ position: 'relative', maxWidth: 320, flex: 1 }}>
+                            <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                            <input
+                                className="form-control"
+                                placeholder="Tìm kiếm test case..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                style={{ paddingLeft: 34 }}
+                            />
+                        </div>
+                    </div>
+
                     {/* Upload zone */}
                     <div
                         className={`upload-zone mb-6 ${dragOver ? 'dragover' : ''}`}
@@ -193,8 +259,8 @@ export default function TestCaseEditor({ navigate, ctx }) {
                         <table>
                             <thead><tr><th>Tiêu đề</th><th>URL</th><th>Trình duyệt / Thiết bị</th><th>Số bước</th><th>Thao tác</th></tr></thead>
                             <tbody>
-                                {testCases.length === 0 && <tr><td colSpan={5}><div className="empty-state"><p>Chưa có test case. Tạo mới hoặc upload Excel.</p></div></td></tr>}
-                                {testCases.map(tc => (
+                                {filteredTCs.length === 0 && <tr><td colSpan={5}><div className="empty-state"><p>{search ? 'Không tìm thấy test case nào.' : 'Chưa có test case. Tạo mới hoặc upload Excel.'}</p></div></td></tr>}
+                                {filteredTCs.map(tc => (
                                     <tr key={tc.id}>
                                         <td><strong>{tc.title}</strong><br /><span className="text-muted text-sm">{tc.id}</span></td>
                                         <td className="text-sm text-muted" style={{ maxWidth: 200, wordBreak: 'break-all' }}>{tc.url}</td>
@@ -206,6 +272,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                         <td>
                                             <div className="flex gap-2">
                                                 <button className="btn btn-ghost btn-sm" onClick={() => openEdit(tc)}>✏️ Sửa</button>
+                                                <button className="btn btn-outline btn-sm" onClick={() => cloneTC(tc.id)} title="Tạo bản sao"><Copy size={13} /> Clone</button>
                                                 <button className="btn btn-danger btn-sm" onClick={() => del(tc.id, tc.title)}><Trash2 size={13} /></button>
                                             </div>
                                         </td>
