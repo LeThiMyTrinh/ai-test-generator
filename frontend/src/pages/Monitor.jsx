@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import api, { apiUrl } from '../api/client'
+import api, { apiUrl, baseURL } from '../api/client'
 import toast from 'react-hot-toast'
 import { io } from 'socket.io-client'
 import { PlayCircle, CheckCircle, XCircle, Clock, Image } from 'lucide-react'
@@ -33,7 +33,7 @@ export default function Monitor({ navigate, ctx }) {
 
     // Socket.IO
     useEffect(() => {
-        socket = io(window.location.origin)
+        socket = io(baseURL || window.location.origin)
         socket.on('tc_start', ({ tcId, title }) => {
             setTcResults(p => ({ ...p, [tcId]: { title, status: 'RUNNING', steps: [] } }))
         })
@@ -105,6 +105,41 @@ export default function Monitor({ navigate, ctx }) {
             toast.success('Đã bắt đầu chạy test!')
         } catch (e) { toast.error(e.response?.data?.error || 'Lỗi'); setStatus('idle') }
     }
+
+    // Polling fallback: nếu Socket.IO không kết nối được, poll API mỗi 5s
+    useEffect(() => {
+        if (status !== 'running' || !runId) return
+        const interval = setInterval(async () => {
+            try {
+                const r = await api.get(`/api/runs/${runId}`)
+                const run = r.data
+                if (run.status === 'DONE' || run.status === 'ERROR') {
+                    clearInterval(interval)
+                    if (run.status === 'DONE' && run.summary_json) {
+                        const s = typeof run.summary_json === 'string' ? JSON.parse(run.summary_json) : run.summary_json
+                        setSummary(s)
+                        setProgress({ done: s.total, total: s.total })
+                    }
+                    if (run.results && run.results.length > 0) {
+                        const mapped = {}
+                        for (const r of run.results) {
+                            mapped[r.test_case_id] = {
+                                title: r.test_case_title,
+                                status: r.status,
+                                error: r.error_message,
+                                videoPath: r.video_path,
+                                steps: r.steps_result_json ? (typeof r.steps_result_json === 'string' ? JSON.parse(r.steps_result_json) : r.steps_result_json) : []
+                            }
+                        }
+                        setTcResults(prev => ({ ...prev, ...mapped }))
+                    }
+                    setStatus(run.status === 'DONE' ? 'done' : 'error')
+                    if (run.status === 'ERROR') toast.error('Test run gặp lỗi trên server')
+                }
+            } catch { /* ignore polling errors */ }
+        }, 5000)
+        return () => clearInterval(interval)
+    }, [status, runId])
 
     const pct = progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0
     const tcList = Object.entries(tcResults)

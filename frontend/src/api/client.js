@@ -38,4 +38,5 @@ export function apiUrl(path) {
   return baseURL ? `${baseURL}${p}${authParam}` : `${p}${authParam}`
 }
 
+export { baseURL }
 export default api
