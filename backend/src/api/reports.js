@@ -28,4 +28,17 @@ router.get('/:runId/pdf', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.get('/:runId/failed/html', async (req, res) => {
+    try {
+        const run = await db.runs.findOne({ id: req.params.runId });
+        if (!run) return res.status(404).json({ error: 'Not found' });
+        const suite = await db.suites.findOne({ id: run.suite_id }) || { name: 'N/A' };
+        const results = await db.results.find({ run_id: req.params.runId }).sort({ _id: 1 });
+        const failedCount = results.filter(r => r.status === 'FAILED').length;
+        if (failedCount === 0) return res.status(400).json({ error: 'Không có test case FAILED nào' });
+        const { path: htmlPath, filename } = await reporter.generateFailedHTML(run, suite, results);
+        res.download(htmlPath, filename);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

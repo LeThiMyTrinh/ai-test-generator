@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo cáo FAILED - <%= run.id %></title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1a202c}
+    .header{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:white;padding:32px 48px}
+    .header h1{font-size:28px;font-weight:700;margin-bottom:6px}
+    .header p{font-size:14px;opacity:0.85}
+    .container{max-width:1100px;margin:0 auto;padding:32px 24px}
+    .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+    .card{background:white;border-radius:12px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center}
+    .card .num{font-size:40px;font-weight:800;line-height:1}
+    .card .lbl{font-size:13px;color:#64748b;margin-top:6px;text-transform:uppercase;letter-spacing:0.5px}
+    .card.total .num{color:#1e3a8a}
+    .card.fail .num{color:#dc2626}
+    .card.rate .num{color:#7c3aed}
+    .section-title{font-size:18px;font-weight:700;color:#1e3a8a;margin-bottom:16px;border-left:4px solid #3b82f6;padding-left:12px}
+    .chart-row{display:grid;grid-template-columns:260px 1fr;gap:24px;align-items:center;margin-bottom:32px;background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+    .chart-container{max-height:220px}
+    .env-info{font-size:13px}
+    .env-info table{width:100%;border-collapse:collapse}
+    .env-info td{padding:8px 12px;border-bottom:1px solid #e2e8f0}
+    .env-info td:first-child{color:#64748b;width:150px}
+    .tc-list{display:flex;flex-direction:column;gap:12px}
+    .tc-item{background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);overflow:hidden}
+    .tc-header{display:flex;align-items:center;padding:16px 20px;cursor:pointer;user-select:none}
+    .tc-header:hover{background:#f8fafc}
+    .badge{font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;margin-right:14px;min-width:64px;text-align:center}
+    .badge.PASSED{background:#dcfce7;color:#16a34a}
+    .badge.FAILED{background:#fee2e2;color:#dc2626}
+    .tc-title{font-weight:600;flex:1}
+    .tc-meta{font-size:12px;color:#94a3b8;margin-left:auto}
+    .tc-body{display:none;padding:0 20px 20px;border-top:1px solid #f1f5f9}
+    .tc-body.open{display:block}
+    .steps-table{width:100%;border-collapse:collapse;font-size:13px;margin:16px 0}
+    .steps-table th{background:#f8fafc;text-align:left;padding:8px 12px;font-size:12px;color:#64748b;border-bottom:2px solid #e2e8f0}
+    .steps-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .step-pass{color:#16a34a;font-weight:600}
+    .step-fail{color:#dc2626;font-weight:600}
+    .step-fail-row{background:#fff5f5}
+    .error-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;font-size:13px;color:#b91c1c;margin-top:12px}
+    .evidence-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+    .ss-thumb{width:160px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;transition:transform 0.2s}
+    .ss-thumb:hover{transform:scale(1.05);border-color:#3b82f6}
+    .overview-table{width:100%;border-collapse:collapse;font-size:13px}
+    .overview-table th{background:#f8fafc;text-align:left;padding:10px 14px;font-size:12px;color:#64748b;border-bottom:2px solid #e2e8f0}
+    .overview-table td{padding:10px 14px;border-bottom:1px solid #f1f5f9}
+    .error-group-table{width:100%;border-collapse:collapse;font-size:13px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .error-group-table th{background:#f8fafc;text-align:left;padding:10px 14px;font-size:12px;color:#64748b;border-bottom:2px solid #e2e8f0}
+    .error-group-table td{padding:10px 14px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .priority-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700}
+    .priority-CRITICAL{background:#fee2e2;color:#991b1b}
+    .priority-HIGH{background:#fff7ed;color:#c2410c}
+    .priority-MEDIUM{background:#fefce8;color:#a16207}
+    .priority-LOW{background:#f0fdf4;color:#15803d}
+    .priority-none{background:#f1f5f9;color:#94a3b8}
+    .footer{text-align:center;padding:24px;font-size:12px;color:#94a3b8}
+    #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center}
+    #lightbox.active{display:flex}
+    #lightbox img{max-width:90vw;max-height:85vh;border-radius:8px;border:3px solid white}
+    #lightbox-close{position:absolute;top:20px;right:24px;color:white;font-size:32px;cursor:pointer;line-height:1}
+    @media print{.tc-body{display:block!important}}
+  </style>
+</head>
+<body>
+  <div id="lightbox"><span id="lightbox-close" onclick="closeLightbox()">&times;</span><img id="lightbox-img" src=""></div>
+  <div class="header">
+    <h1>&#128027; Báo cáo Test Case FAILED</h1>
+    <p>Suite: <strong><%= suite.name %></strong> &nbsp;|&nbsp; Run ID: <strong><%= run.id %></strong> &nbsp;|&nbsp; Xuất lúc: <%= generatedAt %></p>
+  </div>
+  <div class="container">
+    <% var totalRun = totalInRun || failedResults.length; %>
+    <% var totalFail = failedResults.length; %>
+    <% var passRate = totalRun > 0 ? Math.round((totalRun - totalFail) / totalRun * 100) : 0; %>
+    <% var startD = new Date(run.started_at); %>
+    <% var endD = new Date(run.finished_at); %>
+    <% var dur = Math.round((endD - startD) / 1000); %>
+    <% var priorityOrder = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 }; %>
+    <% var sortedResults = failedResults.slice().sort(function(a, b) { var pa = priorityOrder[a.priority] !== undefined ? priorityOrder[a.priority] : 99; var pb = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 99; return pa - pb; }); %>
+    <div class="summary-grid" style="margin-top:28px">
+      <div class="card total"><div class="num"><%= totalRun %></div><div class="lbl">Tổng TC đã chạy</div></div>
+      <div class="card fail"><div class="num"><%= totalFail %></div><div class="lbl">TC Failed</div></div>
+      <div class="card rate"><div class="num"><%= passRate %>%%</div><div class="lbl">Tỉ lệ Passed</div></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-container"><canvas id="pieChart"></canvas></div>
+      <div class="env-info">
+        <div class="section-title" style="margin-bottom:12px">Thông tin môi trường</div>
+        <table>
+          <tr><td>Trình duyệt</td><td><%= run.browser || 'chromium' %></td></tr>
+          <tr><td>Bắt đầu</td><td><%= startD.toLocaleString('vi-VN') %></td></tr>
+          <tr><td>Kết thúc</td><td><%= endD.toLocaleString('vi-VN') %></td></tr>
+          <tr><td>Thời gian chạy</td><td><%= dur %>s</td></tr>
+          <tr><td>Tổng Failed</td><td style="color:#dc2626;font-weight:700"><%= totalFail %> / <%= totalRun %> test case</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="section-title">Bảng tổng quan FAILED</div>
+    <div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:32px">
+      <table class="overview-table">
+        <thead><tr><th>#</th><th>Mã TC</th><th>Tiêu đề</th><th>Ưu tiên</th><th>Error</th></tr></thead>
+        <tbody>
+          <% sortedResults.forEach(function(r, idx) { %>
+          <tr>
+            <td><%= idx + 1 %></td>
+            <td><%= r.test_case_id %></td>
+            <td style="font-weight:600"><%= r.test_case_title || r.test_case_id %></td>
+            <td><span class="priority-badge priority-<%= r.priority || 'none' %>"><%= r.priority || 'Chưa gán' %></span></td>
+            <td style="max-width:300px;word-break:break-word;font-size:12px;color:#b91c1c"><%= (r.error_message || '').substring(0, 150) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-title">Chi tiết từng Test Case FAILED</div>
+    <div class="tc-list">
+      <% sortedResults.forEach(function(r, idx) { %>
+      <% var steps = r._steps || []; %>
+      <% var tcDur = Math.round((r.duration_ms || 0) / 1000); %>
+      <div class="tc-item">
+        <div class="tc-header" onclick="toggle(<%= idx %>)">
+          <span class="badge FAILED">FAILED</span>
+          <span class="tc-title"><%= r.test_case_title || r.test_case_id %></span>
+          <% if (r.priority) { %>
+          <span class="priority-badge priority-<%= r.priority %>" style="margin-right:8px"><%= r.priority %></span>
+          <% } %>
+          <span class="tc-meta"><%= tcDur %>s &nbsp;&#9660;</span>
+        </div>
+        <div class="tc-body" id="tc-<%= idx %>">
+          <% if (r.error_message) { %>
+          <div class="error-box">&#9888;&#65039; Loi: <%= r.error_message %></div>
+          <% } %>
+          <table class="steps-table">
+            <thead><tr><th>#</th><th>Action</th><th>Mô tả</th><th>Trạng thái</th><th>Thoi gian</th></tr></thead>
+            <tbody>
+              <% steps.forEach(function(s) { %>
+              <tr class="<%= s.status === 'FAILED' ? 'step-fail-row' : '' %>">
+                <td><%= s.step_id %></td>
+                <td><code><%= s.action %></code></td>
+                <td><%= s.description || '' %></td>
+                <td class="<%= s.status === 'PASSED' ? 'step-pass' : 'step-fail' %>"><%= s.status %></td>
+                <td><%= s.duration_ms %>ms</td>
+              </tr>
+              <% if (s.error) { %>
+              <tr><td colspan="5"><div class="error-box" style="margin:4px 0">&#8627; <%= s.error %></div></td></tr>
+              <% } %>
+              <% }); %>
+            </tbody>
+          </table>
+          <div class="section-title" style="font-size:15px;margin:8px 0 10px">Bằng chứng (Evidence)</div>
+          <div class="evidence-row">
+            <% steps.forEach(function(s) { if (s.screenshot_data) { %>
+            <img class="ss-thumb" src="<%= s.screenshot_data %>" alt="Step <%= s.step_id %>" title="Step <%= s.step_id %> - <%= s.status %>" onclick="openLightbox(this.src)" style="<%= s.status === 'FAILED' ? 'border-color:#dc2626;' : '' %>">
+            <% } }); %>
+            <% if (r.video_data) { %>
+            <video controls width="320" style="border-radius:8px;border:2px solid #e2e8f0;margin-top:4px"><source src="<%= r.video_data %>" type="video/webm"></video>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+    <% var errorGroups = {}; %>
+    <% failedResults.forEach(function(r) { %>
+    <%   var key = (r.error_message || 'Unknown error').substring(0, 120); %>
+    <%   if (!errorGroups[key]) errorGroups[key] = []; %>
+    <%   errorGroups[key].push(r.test_case_title || r.test_case_id); %>
+    <% }); %>
+    <% if (Object.keys(errorGroups).length > 0) { %>
+    <div class="section-title" style="margin-top:32px">Nhóm lỗi (Error Patterns)</div>
+    <table class="error-group-table">
+      <thead><tr><th>Error Pattern</th><th>Số TC</th><th>Test Cases liên quan</th></tr></thead>
+      <tbody>
+        <% Object.keys(errorGroups).forEach(function(err) { %>
+        <% var tcs = errorGroups[err]; %>
+        <tr>
+          <td style="max-width:400px;word-break:break-word;color:#b91c1c;font-size:12px"><%= err %></td>
+          <td style="text-align:center;font-weight:700;color:#dc2626"><%= tcs.length %></td>
+          <td style="font-size:12px"><%= tcs.join(', ') %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+  <div class="footer">Tạo tự động bởi Web Automation Testing Tool &copy; 2026</div>
+  <script>
+    function toggle(idx) {
+      var el = document.getElementById('tc-' + idx);
+      if (el) el.classList.toggle('open');
+    }
+    function openLightbox(src) {
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('lightbox').classList.add('active');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('active');
+    }
+    document.getElementById('lightbox').addEventListener('click', function(e) {
+      if (e.target === this) closeLightbox();
+    });
+    var ctx = document.getElementById('pieChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Passed', 'Failed'],
+        datasets: [{ data: [<%= totalRun - totalFail %>, <%= totalFail %>], backgroundColor: ['#16a34a', '#dc2626'], borderWidth: 0, hoverOffset: 6 }]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 13 } } } },
+        cutout: '62%'
+      }
+    });
+  </script>
+</body>
+</html>

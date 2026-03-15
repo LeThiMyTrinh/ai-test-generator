@@ -471,6 +471,15 @@ select.form-control {
   }
 }
 
+@keyframes spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin-anim 1s linear infinite;
+}
+
 /* === Progress bar === */
 .progress-bar {
   height: 8px;

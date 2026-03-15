@@ -5,6 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const AITestGenerator = require('../ai/AITestGenerator');
 const URLCrawler = require('../ai/URLCrawler');
+const UICheckerModule = require('../ai/UIChecker');
+const UIChecker = new UICheckerModule();
+const { DESKTOP_PRESETS, TABLET_PRESETS, MOBILE_PRESETS } = UICheckerModule;
 
 const UPLOADS_DIR = path.join(__dirname, '../../../uploads/ai');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -136,6 +139,33 @@ router.post('/crawl', async (req, res) => {
         });
     } catch (err) {
         console.error('[AI] Crawl error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/ui-presets — return available device presets
+router.get('/ui-presets', (req, res) => {
+    res.json({
+        desktop: Object.keys(DESKTOP_PRESETS).map(k => ({ value: k, label: `Desktop ${DESKTOP_PRESETS[k].width}×${DESKTOP_PRESETS[k].height}` })),
+        tablet: Object.keys(TABLET_PRESETS).map(k => ({ value: k, label: TABLET_PRESETS[k] })),
+        mobile: Object.keys(MOBILE_PRESETS).map(k => ({ value: k, label: MOBILE_PRESETS[k] })),
+    });
+});
+
+// POST /api/ai/ui-check — run UI checks on a URL
+router.post('/ui-check', async (req, res) => {
+    try {
+        const { url, desktop, tablet, mobile } = req.body;
+        if (!url) return res.status(400).json({ error: 'Cần cung cấp URL.' });
+
+        console.log(`[UIChecker] Starting check: ${url}`);
+        console.log(`[UIChecker] Devices: desktop=${desktop}, tablet=${tablet}, mobile=${mobile}`);
+        const result = await UIChecker.check(url, { desktop, tablet, mobile });
+        console.log(`[UIChecker] Done: ${result.summary.total} issues found in ${result.summary.duration_ms}ms`);
+
+        res.json(result);
+    } catch (err) {
+        console.error('[UIChecker] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

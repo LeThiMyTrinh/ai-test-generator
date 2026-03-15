@@ -4,6 +4,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const TEMPLATE_PATH = path.join(__dirname, '../templates/report.ejs');
+const FAILED_TEMPLATE_PATH = path.join(__dirname, '../templates/failed-report.ejs');
 const REPORTS_DIR = path.join(__dirname, '../../../reports');
 const EVIDENCE_BASE = path.join(__dirname, '../../../evidence');
 
@@ -83,6 +84,40 @@ class Reporter {
         await page.pdf({ path: pdfPath, format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
         await browser.close();
         return { path: pdfPath, filename: pdfFilename };
+    }
+
+    async generateFailedHTML(run, suiteInfo, allResults) {
+        const failedOnly = allResults.filter(r => r.status === 'FAILED');
+        if (failedOnly.length === 0) {
+            throw new Error('Không có test case FAILED nào trong lần chạy này');
+        }
+
+        const processedResults = failedOnly.map(r => {
+            const stepsRaw = r.steps_result_json ? JSON.parse(r.steps_result_json) : [];
+            const steps = stepsRaw.map(s => ({
+                ...s,
+                screenshot_data: this.toBase64(s.screenshot)
+            }));
+            return {
+                ...r,
+                _steps: steps,
+                video_data: this.videoToBase64(r.video_path)
+            };
+        });
+
+        const template = fs.readFileSync(FAILED_TEMPLATE_PATH, 'utf-8');
+        const html = ejs.render(template, {
+            run,
+            suite: suiteInfo,
+            failedResults: processedResults,
+            totalInRun: allResults.length,
+            generatedAt: new Date().toLocaleString('vi-VN')
+        });
+
+        const filename = `failed-report-${run.id}.html`;
+        const outputPath = path.join(REPORTS_DIR, filename);
+        fs.writeFileSync(outputPath, html, 'utf-8');
+        return { path: outputPath, filename };
     }
 }
 

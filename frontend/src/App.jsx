@@ -10,6 +10,7 @@ import TestCaseEditor from './pages/TestCaseEditor'
 import Monitor from './pages/Monitor'
 import History from './pages/History'
 import AIGenerator from './pages/AIGenerator'
+import UIChecker from './pages/UIChecker'
 import './index.css'
 
 function AppContent() {
@@ -36,6 +37,7 @@ function AppContent() {
       case 'monitor': return <Monitor navigate={navigate} ctx={ctx} />
       case 'history': return <History navigate={navigate} ctx={ctx} />
       case 'ai-generator': return <AIGenerator navigate={navigate} ctx={ctx} />
+      case 'ui-checker': return <UIChecker navigate={navigate} ctx={ctx} />
       default: return <Dashboard navigate={navigate} />
     }
   }
@@ -43,7 +45,8 @@ function AppContent() {
   const titles = {
     dashboard: 'Dashboard', projects: 'Quản lý Dự án', suites: 'Quản lý Test Suite',
     editor: 'Tạo / Chỉnh sửa Test Case', monitor: 'Theo dõi Thực thi',
-    history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case bằng AI'
+    history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case bằng AI',
+    'ui-checker': '🔍 Kiểm tra UI'
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api, { apiUrl } from '../api/client'
-import { FileDown, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { FileDown, ChevronDown, ChevronRight, Trash2, RefreshCw, Bug } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function History({ navigate, ctx }) {
     const [projects, setProjects] = useState([])
@@ -13,6 +14,18 @@ export default function History({ navigate, ctx }) {
     const [lightbox, setLightbox] = useState(null)
     const [selectedRuns, setSelectedRuns] = useState(new Set())
     const [deleting, setDeleting] = useState(false)
+    const [rerunning, setRerunning] = useState({})        // { runId: true } when re-running
+    const [rerunProgress, setRerunProgress] = useState({}) // { runId: { done, total } }
+    const [comparisons, setComparisons] = useState({})     // { runId: comparison[] }
+    const [priorities, setPriorities] = useState({})       // { 'runId::tcId': 'HIGH' }
+
+    const PRIORITY_OPTIONS = [
+        { value: '', label: '-- Chưa gán --', color: '#94a3b8', bg: '#f1f5f9' },
+        { value: 'CRITICAL', label: '🔴 Critical', color: '#991b1b', bg: '#fee2e2' },
+        { value: 'HIGH', label: '🟠 High', color: '#c2410c', bg: '#fff7ed' },
+        { value: 'MEDIUM', label: '🟡 Medium', color: '#a16207', bg: '#fefce8' },
+        { value: 'LOW', label: '🟢 Low', color: '#15803d', bg: '#f0fdf4' },
+    ]
 
     // Load projects
     useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
@@ -119,6 +132,85 @@ export default function History({ navigate, ctx }) {
         setDeleting(false)
     }
 
+    // ========= Re-run FAILED =========
+    const rerunFailed = async (runId, e) => {
+        e.stopPropagation()
+        if (!confirm('Bạn có muốn chạy lại tất cả test case FAILED?\nHệ thống sẽ tạo một lần chạy mới chỉ với các case bị fail.')) return
+
+        setRerunning(p => ({ ...p, [runId]: true }))
+        try {
+            const r = await api.post(`/api/runs/rerun-failed/${runId}`)
+            const newRunId = r.data.run_id
+            const total = r.data.total
+            toast.success(`Đang chạy lại ${total} test case FAILED...`)
+            setRerunProgress(p => ({ ...p, [runId]: { done: 0, total, newRunId } }))
+
+            // Poll for completion
+            const pollInterval = setInterval(async () => {
+                try {
+                    const res = await api.get(`/api/runs/${newRunId}`)
+                    const run = res.data
+                    if (run.status === 'DONE') {
+                        clearInterval(pollInterval)
+                        const s = run.summary_json ? (typeof run.summary_json === 'string' ? JSON.parse(run.summary_json) : run.summary_json) : {}
+                        setRerunProgress(p => ({ ...p, [runId]: { ...p[runId], done: s.total || total, total: s.total || total } }))
+
+                        // Fetch comparison
+                        try {
+                            const cmpRes = await api.get(`/api/runs/${newRunId}/comparison`)
+                            setComparisons(p => ({ ...p, [runId]: cmpRes.data }))
+                        } catch { /* no-op */ }
+
+                        setRerunning(p => ({ ...p, [runId]: false }))
+                        toast.success('Chạy lại hoàn tất!')
+
+                        // Reload runs list
+                        loadRuns()
+                    } else if (run.status === 'ERROR') {
+                        clearInterval(pollInterval)
+                        setRerunning(p => ({ ...p, [runId]: false }))
+                        toast.error('Chạy lại gặp lỗi')
+                    } else if (run.results) {
+                        setRerunProgress(p => ({
+                            ...p,
+                            [runId]: { ...p[runId], done: run.results.length }
+                        }))
+                    }
+                } catch { /* ignore */ }
+            }, 3000)
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Lỗi khi chạy lại')
+            setRerunning(p => ({ ...p, [runId]: false }))
+        }
+    }
+
+    const getFailedCount = (run) => {
+        const s = run.summary_json ? JSON.parse(run.summary_json) : {}
+        return s.failed || 0
+    }
+
+    // ========= Priority =========
+    const updatePriority = async (runId, testCaseId, priority) => {
+        const key = `${runId}::${testCaseId}`
+        setPriorities(p => ({ ...p, [key]: priority }))
+        try {
+            await api.patch(`/api/runs/${runId}/results/${testCaseId}/priority`, { priority })
+            toast.success(`Đã cập nhật ưu tiên: ${priority}`)
+        } catch (err) {
+            toast.error('Lỗi cập nhật ưu tiên')
+        }
+    }
+
+    const getPriorityForResult = (runId, r) => {
+        const key = `${runId}::${r.test_case_id}`
+        return priorities[key] || r.priority || ''
+    }
+
+    const getPriorityStyle = (val) => {
+        const opt = PRIORITY_OPTIONS.find(o => o.value === val)
+        return opt ? { color: opt.color, background: opt.bg } : {}
+    }
+
     return (
         <div>
             {lightbox && (
@@ -179,6 +271,11 @@ export default function History({ navigate, ctx }) {
                 const s = run.summary_json ? JSON.parse(run.summary_json) : {}
                 const isOpen = expanded[run.id]
                 const detail = details[run.id]
+                const failedCount = s.failed || 0
+                const isRerunning = rerunning[run.id]
+                const progress = rerunProgress[run.id]
+                const comparison = comparisons[run.id]
+
                 return (
                     <div key={run.id} className="card" style={{ marginBottom: 12, overflow: 'hidden', border: selectedRuns.has(run.id) ? '2px solid var(--primary)' : undefined }}>
                         <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }} onClick={() => toggleExpand(run.id)}>
@@ -193,6 +290,11 @@ export default function History({ navigate, ctx }) {
                                 <div className="flex items-center gap-2">
                                     <strong style={{ fontSize: 14 }}>{run.id}</strong>
                                     {statusBadge(run.status)}
+                                    {run.parent_run_id && (
+                                        <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                                            🔄 Re-run của {run.parent_run_id}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="text-sm text-muted">{run.suite_id} &nbsp;|&nbsp; {new Date(run.started_at).toLocaleString('vi-VN')}</div>
                             </div>
@@ -203,9 +305,26 @@ export default function History({ navigate, ctx }) {
                                 </div>
                             )}
                             {run.status === 'DONE' && (
-                                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                <div className="flex gap-2" onClick={e => e.stopPropagation()} style={{ flexWrap: 'wrap' }}>
                                     <a className="btn btn-outline btn-sm" href={apiUrl(`/api/reports/${run.id}/html`)} target="_blank"><FileDown size={13} /> HTML</a>
                                     <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${run.id}/pdf`)} target="_blank">PDF</a>
+                                    {failedCount > 0 && (
+                                        <a className="btn btn-sm" href={apiUrl(`/api/reports/${run.id}/failed/html`)} target="_blank"
+                                            style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Bug size={13} /> Export Failed ({failedCount})
+                                        </a>
+                                    )}
+                                    {failedCount > 0 && (
+                                        <button
+                                            className="btn btn-sm"
+                                            onClick={(e) => rerunFailed(run.id, e)}
+                                            disabled={isRerunning}
+                                            style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 4 }}
+                                        >
+                                            <RefreshCw size={13} className={isRerunning ? 'spin' : ''} />
+                                            {isRerunning ? 'Đang chạy...' : `Rerun Failed`}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                             <button
@@ -219,16 +338,92 @@ export default function History({ navigate, ctx }) {
                             </button>
                         </div>
 
+                        {/* Re-run progress bar */}
+                        {isRerunning && progress && (
+                            <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', background: '#fffbeb' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#92400e', marginBottom: 4 }}>
+                                    <span>🔄 Đang chạy lại {progress.total} case FAILED...</span>
+                                    <span>{progress.done}/{progress.total}</span>
+                                </div>
+                                <div className="progress-bar" style={{ height: 6 }}>
+                                    <div className="progress-fill" style={{ width: `${progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}%`, background: '#f59e0b' }} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Comparison table — Before/After */}
+                        {comparison && (
+                            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', background: '#f0fdf4' }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: '#166534', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    📊 So sánh Before / After
+                                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>
+                                        (Run mới: {comparison.run_id})
+                                    </span>
+                                </div>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid #bbf7d0' }}>
+                                            <th style={{ textAlign: 'left', padding: '6px 10px', color: '#166534', fontSize: 12 }}>Test Case</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#166534', fontSize: 12 }}>Trước</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#166534', fontSize: 12 }}>Sau</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#166534', fontSize: 12 }}>Kết quả</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {comparison.comparison.map((c, i) => (
+                                            <tr key={i} style={{ borderBottom: '1px solid #dcfce7' }}>
+                                                <td style={{ padding: '8px 10px', fontWeight: 500 }}>{c.title}</td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                                                    <span className={`badge ${c.old_status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`} style={{ fontSize: 11 }}>{c.old_status}</span>
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                                                    <span className={`badge ${c.new_status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`} style={{ fontSize: 11 }}>{c.new_status}</span>
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                                                    {c.verdict === 'FIXED' ? (
+                                                        <span style={{ background: '#dcfce7', color: '#16a34a', fontWeight: 700, padding: '3px 12px', borderRadius: 12, fontSize: 12 }}>✅ Fixed</span>
+                                                    ) : (
+                                                        <span style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 700, padding: '3px 12px', borderRadius: 12, fontSize: 12 }}>❌ Still Failed</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
                         {isOpen && detail && (
                             <div style={{ borderTop: '1px solid var(--border)', padding: '16px 20px' }}>
                                 {(detail.results || []).map((r, i) => {
                                     const steps = r.steps_result_json ? JSON.parse(r.steps_result_json) : []
+                                    const currentPriority = getPriorityForResult(run.id, r)
                                     return (
                                         <div key={i} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-                                            <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                                            <div className="flex items-center gap-2" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
                                                 <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>{r.status}</span>
                                                 <strong>{r.test_case_title}</strong>
                                                 <span className="text-muted text-sm">{Math.round((r.duration_ms || 0) / 1000)}s</span>
+                                                {r.status === 'FAILED' && (
+                                                    <select
+                                                        value={currentPriority}
+                                                        onChange={(e) => updatePriority(run.id, r.test_case_id, e.target.value)}
+                                                        style={{
+                                                            marginLeft: 'auto',
+                                                            padding: '4px 10px',
+                                                            borderRadius: 8,
+                                                            border: '1.5px solid #e2e8f0',
+                                                            fontSize: 12,
+                                                            fontWeight: 700,
+                                                            cursor: 'pointer',
+                                                            ...getPriorityStyle(currentPriority)
+                                                        }}
+                                                    >
+                                                        {PRIORITY_OPTIONS.map(opt => (
+                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
                                             </div>
                                             {r.error_message && <div style={{ marginBottom: 8, padding: '8px 12px', background: 'var(--danger-light)', borderRadius: 6, fontSize: 13, color: 'var(--danger)' }}>⚠️ {r.error_message}</div>}
                                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

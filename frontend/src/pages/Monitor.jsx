@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import api, { apiUrl, baseURL } from '../api/client'
 import toast from 'react-hot-toast'
 import { io } from 'socket.io-client'
-import { PlayCircle, CheckCircle, XCircle, Clock, Image } from 'lucide-react'
+import { PlayCircle, CheckCircle, XCircle, Clock, Image, Bug } from 'lucide-react'
 
 let socket = null
 
@@ -251,6 +251,12 @@ export default function Monitor({ navigate, ctx }) {
                 <div className="flex gap-2 mb-4">
                     <a className="btn btn-outline" href={apiUrl(`/api/reports/${runId}/html`)} target="_blank">📄 Xuất báo cáo HTML</a>
                     <a className="btn btn-ghost" href={apiUrl(`/api/reports/${runId}/pdf`)} target="_blank">📋 Xuất PDF</a>
+                    {summary && summary.failed > 0 && (
+                        <a className="btn btn-sm" href={apiUrl(`/api/reports/${runId}/failed/html`)} target="_blank"
+                            style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Bug size={13} /> Export Failed ({summary.failed})
+                        </a>
+                    )}
                 </div>
             )}
 

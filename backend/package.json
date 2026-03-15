@@ -11,6 +11,7 @@
     "create-template": "node scripts/create-template.js"
   },
   "dependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@google/genai": "^1.42.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",

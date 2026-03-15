@@ -1,4 +1,4 @@
-import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield } from 'lucide-react'
+import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
@@ -7,6 +7,7 @@ const NAV = [
     { id: 'suites', label: 'Test Suites', Icon: FlaskConical },
     { id: 'editor', label: 'Tạo Test Case', Icon: ClipboardList },
     { id: 'ai-generator', label: 'Tạo TC bằng AI', Icon: Sparkles },
+    { id: 'ui-checker', label: 'Kiểm tra UI', Icon: ScanSearch },
     { id: 'monitor', label: 'Live Monitor', Icon: Activity },
     { id: 'history', label: 'Lịch sử chạy', Icon: History },
 ]
