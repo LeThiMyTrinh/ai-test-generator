@@ -1,5 +1,7 @@
 const { chromium, devices } = require('playwright');
 const AxeBuilder = require('@axe-core/playwright').default;
+const AutoLogin = require('./AutoLogin');
+const IssueAnalyzer = require('./IssueAnalyzer');
 
 // Desktop viewport presets
 const DESKTOP_PRESETS = {
@@ -27,12 +29,14 @@ class UIChecker {
     /**
      * Run full UI check on a URL across 3 viewports
      * @param {string} url
-     * @param {object} opts - { desktop, tablet, mobile }
+     * @param {object} opts - { desktop, tablet, mobile, loginEmail, loginPassword }
      */
     async check(url, opts = {}) {
         const desktopKey = opts.desktop || '1920x1080';
         const tabletKey = opts.tablet || 'ipad-pro';
         const mobileKey = opts.mobile || 'iphone-15';
+        const loginEmail = opts.loginEmail || null;
+        const loginPassword = opts.loginPassword || null;
 
         const startTime = Date.now();
         const browser = await chromium.launch({ headless: true });
@@ -40,9 +44,9 @@ class UIChecker {
         try {
             // Run checks on each viewport
             const [desktopResult, tabletResult, mobileResult] = await Promise.all([
-                this._checkViewport(browser, url, 'desktop', desktopKey),
-                this._checkViewport(browser, url, 'tablet', tabletKey),
-                this._checkViewport(browser, url, 'mobile', mobileKey),
+                this._checkViewport(browser, url, 'desktop', desktopKey, loginEmail, loginPassword),
+                this._checkViewport(browser, url, 'tablet', tabletKey, loginEmail, loginPassword),
+                this._checkViewport(browser, url, 'mobile', mobileKey, loginEmail, loginPassword),
             ]);
 
             // Check broken links (only once, not per viewport)
@@ -60,15 +64,28 @@ class UIChecker {
                 ...responsiveIssues,
             ];
 
-            // Summary
+            // === SMART ANALYSIS ===
+            console.log('[UIChecker] Running smart analysis...');
+            const analyzer = new IssueAnalyzer();
+            const analysis = analyzer.analyzeIssues(allIssues, {
+                url,
+                viewports: [desktopKey, tabletKey, mobileKey]
+            });
+
+            // Use analyzed issues instead of raw issues
+            const analyzedIssues = analysis.issues;
+            const patterns = analysis.patterns;
             const summary = {
-                total: allIssues.length,
+                ...analysis.summary,
+                duration_ms: Date.now() - startTime,
+                // Keep old severity counts for backward compatibility
                 critical: allIssues.filter(i => i.severity === 'CRITICAL').length,
                 high: allIssues.filter(i => i.severity === 'HIGH').length,
                 medium: allIssues.filter(i => i.severity === 'MEDIUM').length,
                 low: allIssues.filter(i => i.severity === 'LOW').length,
-                duration_ms: Date.now() - startTime,
             };
+
+            console.log(`[UIChecker] Analysis complete: ${summary.total} issues, ${summary.byPriority.MUST_FIX} must-fix, ${patterns.systematicProblems} systematic problems`);
 
             await browser.close();
 
@@ -84,7 +101,8 @@ class UIChecker {
                     tablet: tabletResult.screenshot,
                     mobile: mobileResult.screenshot,
                 },
-                issues: allIssues,
+                issues: analyzedIssues,  // Now includes score, priority, autoFix
+                patterns,                 // Systematic issues, false positives
                 summary,
             };
         } catch (err) {
@@ -96,7 +114,7 @@ class UIChecker {
     /**
      * Run checks on a single viewport
      */
-    async _checkViewport(browser, url, viewportType, deviceKey) {
+    async _checkViewport(browser, url, viewportType, deviceKey, loginEmail = null, loginPassword = null) {
         let contextOptions = {};
         let deviceLabel = '';
 
@@ -155,6 +173,20 @@ class UIChecker {
         try {
             await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
             await page.waitForTimeout(1500); // settle animations
+
+            // If loginEmail and loginPassword are provided, attempt auto-login
+            if (loginEmail && loginPassword) {
+                const autoLogin = new AutoLogin();
+                const loginSuccess = await autoLogin.attemptLogin(page, loginEmail, loginPassword);
+
+                if (loginSuccess) {
+                    console.log(`[UIChecker] Auto-login successful for ${viewportType}, re-navigating...`);
+                    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+                    await page.waitForTimeout(2000);
+                } else {
+                    console.warn(`[UIChecker] Auto-login failed for ${viewportType}, continuing with current state`);
+                }
+            }
         } catch (err) {
             await context.close();
             return {

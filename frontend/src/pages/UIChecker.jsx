@@ -59,6 +59,9 @@ export default function UIChecker() {
     const [desktop, setDesktop] = useState('1920x1080')
     const [tablet, setTablet] = useState('ipad-pro')
     const [mobile, setMobile] = useState('iphone-15')
+    const [loginEmail, setLoginEmail] = useState('')
+    const [loginPassword, setLoginPassword] = useState('')
+    const [showLoginForm, setShowLoginForm] = useState(false)
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(null)
     const [filterSeverity, setFilterSeverity] = useState('ALL')
@@ -72,10 +75,29 @@ export default function UIChecker() {
     const runCheck = async () => {
         if (!url.trim()) return toast.error('Vui lòng nhập URL')
         if (!url.startsWith('http')) return toast.error('URL phải bắt đầu bằng http:// hoặc https://')
+
+        // If showLoginForm is true but credentials are missing, show error
+        if (showLoginForm && (!loginEmail.trim() || !loginPassword.trim())) {
+            return toast.error('Vui lòng nhập email và mật khẩu để đăng nhập')
+        }
+
         setLoading(true)
         setResult(null)
         try {
-            const r = await api.post('/api/ai/ui-check', { url: url.trim(), desktop, tablet, mobile }, { timeout: 120000 })
+            const payload = {
+                url: url.trim(),
+                desktop,
+                tablet,
+                mobile
+            }
+
+            // Add credentials if login form is shown
+            if (showLoginForm) {
+                payload.loginEmail = loginEmail.trim()
+                payload.loginPassword = loginPassword
+            }
+
+            const r = await api.post('/api/ai/ui-check', payload, { timeout: 120000 })
             setResult(r.data)
             toast.success(`Kiểm tra hoàn tất: ${r.data.summary.total} vấn đề`)
         } catch (err) {
@@ -111,6 +133,34 @@ export default function UIChecker() {
                     <input type="url" className="input" placeholder="https://example.com" value={url}
                         onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && !loading && runCheck()}
                         style={{ width: '100%' }} disabled={loading} />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#fff4e6', borderRadius: 8, border: '1px solid #ffd666' }}>
+                        <input type="checkbox" id="showLoginForm" checked={showLoginForm} onChange={e => setShowLoginForm(e.target.checked)} disabled={loading}
+                            style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                        <label htmlFor="showLoginForm" style={{ fontSize: 13, fontWeight: 500, cursor: 'pointer', flex: 1, margin: 0 }}>
+                            🌐 Đăng nhập tự động (cho trang yêu cầu đăng nhập)
+                        </label>
+                    </div>
+                    {showLoginForm && (
+                        <div style={{ marginTop: 10, padding: '12px 14px', background: '#fafafa', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                            <div style={{ marginBottom: 10 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: '#374151' }}>Email đăng nhập</label>
+                                <input type="email" className="input" placeholder="user@example.com" value={loginEmail}
+                                    onChange={e => setLoginEmail(e.target.value)} disabled={loading}
+                                    style={{ width: '100%', fontSize: 13 }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: '#374151' }}>Mật khẩu</label>
+                                <input type="password" className="input" placeholder="••••••••" value={loginPassword}
+                                    onChange={e => setLoginPassword(e.target.value)} disabled={loading}
+                                    style={{ width: '100%', fontSize: 13 }} />
+                            </div>
+                            <p style={{ fontSize: 11, color: '#6b7280', marginTop: 8, marginBottom: 0 }}>
+                                ⚠️ AI sẽ tự động tìm form đăng nhập, điền thông tin và login. Thông tin chỉ dùng 1 lần và không lưu trữ.
+                            </p>
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
                     <div>

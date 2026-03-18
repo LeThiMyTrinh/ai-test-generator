@@ -62,6 +62,9 @@ router.post('/generate', upload.array('images', 10), async (req, res) => {
         if (url) {
             try {
                 console.log(`[AI] Crawling URL: ${url}`);
+
+                // Note: Auto-login not supported in AI Generate
+                // User should use UIChecker for pages requiring login
                 const crawlResult = await crawler.analyze(url);
                 context.elements = crawlResult.elements;
                 context.metadata = crawlResult.metadata;
@@ -155,12 +158,20 @@ router.get('/ui-presets', (req, res) => {
 // POST /api/ai/ui-check — run UI checks on a URL
 router.post('/ui-check', async (req, res) => {
     try {
-        const { url, desktop, tablet, mobile } = req.body;
+        const { url, desktop, tablet, mobile, loginEmail, loginPassword } = req.body;
         if (!url) return res.status(400).json({ error: 'Cần cung cấp URL.' });
 
         console.log(`[UIChecker] Starting check: ${url}`);
-        console.log(`[UIChecker] Devices: desktop=${desktop}, tablet=${tablet}, mobile=${mobile}`);
-        const result = await UIChecker.check(url, { desktop, tablet, mobile });
+        console.log(`[UIChecker] Devices: desktop=${desktop}, tablet=${tablet}, mobile=${mobile}, autoLogin=${!!(loginEmail && loginPassword)}`);
+
+        const result = await UIChecker.check(url, {
+            desktop,
+            tablet,
+            mobile,
+            loginEmail,
+            loginPassword
+        });
+
         console.log(`[UIChecker] Done: ${result.summary.total} issues found in ${result.summary.duration_ms}ms`);
 
         res.json(result);

@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const AutoLogin = require('./AutoLogin');
 
 /**
  * URLCrawler — Dùng Playwright để truy cập URL và phân tích DOM
@@ -8,15 +9,46 @@ class URLCrawler {
     /**
      * Crawl a URL and extract UI analysis data
      * @param {string} url
+     * @param {object} options - { authToken?: string, loginEmail?: string, loginPassword?: string }
      * @returns {{ screenshot: Buffer, elements: Array, metadata: object }}
      */
-    async analyze(url) {
+    async analyze(url, options = {}) {
         const browser = await chromium.launch({ headless: true });
         const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 
         try {
+            // If authToken is provided, inject it into localStorage before navigating
+            if (options.authToken) {
+                // Navigate to the origin first to set localStorage
+                const urlObj = new URL(url);
+                const origin = urlObj.origin;
+                await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 10000 });
+
+                // Inject token into localStorage
+                await page.evaluate((token) => {
+                    localStorage.setItem('auth_token', token);
+                }, options.authToken);
+
+                console.log('[URLCrawler] Auth token injected into localStorage');
+            }
+
             await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
             await page.waitForTimeout(1000); // settle animations
+
+            // If loginEmail and loginPassword are provided, attempt auto-login
+            if (options.loginEmail && options.loginPassword) {
+                const autoLogin = new AutoLogin();
+                const loginSuccess = await autoLogin.attemptLogin(page, options.loginEmail, options.loginPassword);
+
+                if (loginSuccess) {
+                    console.log('[URLCrawler] Auto-login successful, re-navigating to target URL...');
+                    // After login, navigate to the actual target URL
+                    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+                    await page.waitForTimeout(2000);
+                } else {
+                    console.warn('[URLCrawler] Auto-login failed or not needed, continuing with current page state');
+                }
+            }
 
             // Capture full screenshot
             const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
