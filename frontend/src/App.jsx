@@ -10,7 +10,7 @@ import TestCaseEditor from './pages/TestCaseEditor'
 import Monitor from './pages/Monitor'
 import History from './pages/History'
 import AIGenerator from './pages/AIGenerator'
-import UIChecker from './pages/UIChecker'
+import UICheckerV2 from './pages/UICheckerV2'
 import './index.css'
 
 function AppContent() {
@@ -37,7 +37,7 @@ function AppContent() {
       case 'monitor': return <Monitor navigate={navigate} ctx={ctx} />
       case 'history': return <History navigate={navigate} ctx={ctx} />
       case 'ai-generator': return <AIGenerator navigate={navigate} ctx={ctx} />
-      case 'ui-checker': return <UIChecker navigate={navigate} ctx={ctx} />
+      case 'ui-checker': return <UICheckerV2 navigate={navigate} ctx={ctx} />
       default: return <Dashboard navigate={navigate} />
     }
   }

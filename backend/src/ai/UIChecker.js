@@ -214,6 +214,21 @@ class UIChecker {
             const vw = window.innerWidth;
             const vh = window.innerHeight;
 
+            // Helper to get element position
+            function getElementPosition(el) {
+                try {
+                    const rect = el.getBoundingClientRect();
+                    return {
+                        x: Math.round(rect.left),
+                        y: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    };
+                } catch (e) {
+                    return null;
+                }
+            }
+
             // --- #1 & #5: Horizontal overflow ---
             if (document.body.scrollWidth > vw + 5) {
                 issues.push({
@@ -223,6 +238,7 @@ class UIChecker {
                     viewport: vType,
                     selector: 'body',
                     details: `scrollWidth: ${document.body.scrollWidth}, viewportWidth: ${vw}`,
+                    position: { x: 0, y: 0, width: vw, height: 100 }
                 });
             }
 
@@ -241,6 +257,7 @@ class UIChecker {
                             viewport: vType,
                             selector: el.id ? `#${el.id}` : `${tag}.${(el.className || '').toString().split(' ')[0] || '?'}`,
                             details: el.textContent ? el.textContent.substring(0, 80) : '',
+                            position: getElementPosition(el)
                         });
                     }
                 } catch (e) { /* skip */ }
@@ -276,6 +293,7 @@ class UIChecker {
                             viewport: vType,
                             selector: el.id ? `#${el.id}` : tag,
                             details: (el.textContent || '').substring(0, 60),
+                            position: getElementPosition(el)
                         });
                     }
                 } catch (e) { /* skip */ }
@@ -291,6 +309,7 @@ class UIChecker {
                         viewport: vType,
                         selector: img.id ? `#${img.id}` : `img[src="${img.src.substring(0, 60)}"]`,
                         details: img.alt || '(no alt)',
+                        position: getElementPosition(img)
                     });
                 }
             });
@@ -306,6 +325,7 @@ class UIChecker {
                         viewport: vType,
                         selector: img.id ? `#${img.id}` : 'img',
                         details: `${img.naturalWidth}×${img.naturalHeight}`,
+                        position: getElementPosition(img)
                     });
                 }
             });
@@ -325,6 +345,7 @@ class UIChecker {
                         viewport: vType,
                         selector: img.id ? `#${img.id}` : 'img',
                         details: `Original: ${img.naturalWidth}×${img.naturalHeight}, Display: ${img.clientWidth}×${img.clientHeight}`,
+                        position: getElementPosition(img)
                     });
                 }
             });
@@ -341,6 +362,7 @@ class UIChecker {
                             viewport: vType,
                             selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
                             details: `scrollWidth: ${el.scrollWidth}, clientWidth: ${el.clientWidth}`,
+                            position: getElementPosition(el)
                         });
                     }
                 } catch (e) { /* skip */ }
@@ -361,6 +383,7 @@ class UIChecker {
                             viewport: vType,
                             selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
                             details: (el.textContent || el.value || '').substring(0, 40),
+                            position: getElementPosition(el)
                         });
                     }
                 });
