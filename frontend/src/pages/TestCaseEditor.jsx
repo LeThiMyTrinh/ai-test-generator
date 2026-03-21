@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import api, { apiUrl } from '../api/client'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Copy } from 'lucide-react'
+import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Copy, Database } from 'lucide-react'
 
 const ACTIONS = ['navigate', 'click', 'fill', 'select', 'hover', 'assert_text', 'assert_visible', 'assert_url', 'wait', 'screenshot']
 
@@ -61,7 +61,17 @@ export default function TestCaseEditor({ navigate, ctx }) {
     const [warnings, setWarnings] = useState([])
     const [showPreview, setShowPreview] = useState(false)
     const [search, setSearch] = useState('')
+    const [showDataSets, setShowDataSets] = useState(false)
+    const [dataSetsTC, setDataSetsTC] = useState('')
+    const [dataSets, setDataSets] = useState([])
+    const [dsLoading, setDsLoading] = useState(false)
+    const [showDSUpload, setShowDSUpload] = useState(false)
+    const [dsName, setDsName] = useState('')
+    const [dsData, setDsData] = useState([])
+    const [dsCsvFile, setDsCsvFile] = useState(null)
+    const [expandedDS, setExpandedDS] = useState(null)
     const fileRef = useRef()
+    const csvRef = useRef()
 
     // Load projects
     useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
@@ -143,6 +153,87 @@ export default function TestCaseEditor({ navigate, ctx }) {
             loadTCs()
         } catch (e) {
             toast.error(e.response?.data?.error || 'Lỗi khi clone')
+        }
+    }
+
+    // Data-Driven Testing functions
+    const loadDataSets = async (tcId) => {
+        setDsLoading(true)
+        try {
+            const r = await api.get(`/api/data-sets?test_case_id=${tcId}`)
+            setDataSets(r.data)
+        } catch (e) {
+            toast.error('Lỗi tải data sets')
+        } finally { setDsLoading(false) }
+    }
+
+    const openDataSets = (tcId) => {
+        setDataSetsTC(tcId)
+        setShowDataSets(true)
+        setExpandedDS(null)
+        loadDataSets(tcId)
+    }
+
+    const handleCSVParse = (file) => {
+        setDsCsvFile(file)
+        const reader = new FileReader()
+        reader.onload = (e) => {
+            const text = e.target.result
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l)
+            if (lines.length < 2) { toast.error('File CSV cần ít nhất 1 header và 1 dòng dữ liệu'); return }
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
+            const rows = lines.slice(1).map(line => {
+                const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
+                const obj = {}
+                headers.forEach((h, i) => { obj[h] = vals[i] || '' })
+                return obj
+            })
+            setDsData(rows)
+        }
+        reader.readAsText(file)
+    }
+
+    const uploadDataSet = async () => {
+        if (!dsName.trim()) return toast.error('Vui lòng nhập tên data set')
+        try {
+            if (dsCsvFile) {
+                const fd = new FormData()
+                fd.append('file', dsCsvFile)
+                fd.append('test_case_id', dataSetsTC)
+                fd.append('name', dsName)
+                await api.post('/api/data-sets', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+            } else {
+                if (dsData.length === 0) return toast.error('Chưa có dữ liệu')
+                await api.post('/api/data-sets', { test_case_id: dataSetsTC, name: dsName, data: dsData })
+            }
+            toast.success('Đã tạo data set')
+            setShowDSUpload(false)
+            setDsName('')
+            setDsData([])
+            setDsCsvFile(null)
+            loadDataSets(dataSetsTC)
+        } catch (e) {
+            toast.error(e.response?.data?.error || 'Lỗi tạo data set')
+        }
+    }
+
+    const deleteDataSet = async (dsId) => {
+        if (!confirm('Xóa data set này?')) return
+        try {
+            await api.delete(`/api/data-sets/${dsId}`)
+            toast.success('Đã xóa data set')
+            loadDataSets(dataSetsTC)
+        } catch (e) {
+            toast.error('Lỗi xóa data set')
+        }
+    }
+
+    const runWithDataSet = async (dsId) => {
+        try {
+            const r = await api.post(`/api/data-sets/${dsId}/run`, { continueOnFailure: true, retryCount: 0, concurrency: 1 })
+            toast.success(`Đã bắt đầu chạy! Run ID: ${r.data.run_id}`)
+        } catch (e) {
+            toast.error(e.response?.data?.error || 'Lỗi chạy data set')
         }
     }
 
@@ -257,9 +348,9 @@ export default function TestCaseEditor({ navigate, ctx }) {
                     {/* Test cases list */}
                     <div className="card table-wrap">
                         <table>
-                            <thead><tr><th>Tiêu đề</th><th>URL</th><th>Trình duyệt / Thiết bị</th><th>Số bước</th><th>Thao tác</th></tr></thead>
+                            <thead><tr><th>Tiêu đề</th><th>URL</th><th>Trình duyệt / Thiết bị</th><th>Số bước</th><th>Data</th><th>Thao tác</th></tr></thead>
                             <tbody>
-                                {filteredTCs.length === 0 && <tr><td colSpan={5}><div className="empty-state"><p>{search ? 'Không tìm thấy test case nào.' : 'Chưa có test case. Tạo mới hoặc upload Excel.'}</p></div></td></tr>}
+                                {filteredTCs.length === 0 && <tr><td colSpan={6}><div className="empty-state"><p>{search ? 'Không tìm thấy test case nào.' : 'Chưa có test case. Tạo mới hoặc upload Excel.'}</p></div></td></tr>}
                                 {filteredTCs.map(tc => (
                                     <tr key={tc.id}>
                                         <td><strong>{tc.title}</strong><br /><span className="text-muted text-sm">{tc.id}</span></td>
@@ -269,6 +360,11 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                             {tc.device && <span className="badge" style={{ marginLeft: 4, background: 'var(--primary-light, #eff6ff)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>📱 {DEVICE_OPTIONS.find(d => d.value === tc.device)?.label.replace(/^📱|^📟/, '').trim() || tc.device.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>}
                                         </td>
                                         <td>{(tc.steps || []).length} bước</td>
+                                        <td>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => openDataSets(tc.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Database size={13} /> Data
+                                            </button>
+                                        </td>
                                         <td>
                                             <div className="flex gap-2">
                                                 <button className="btn btn-ghost btn-sm" onClick={() => openEdit(tc)}>✏️ Sửa</button>
@@ -447,6 +543,156 @@ export default function TestCaseEditor({ navigate, ctx }) {
                             )}
                             <button className="btn btn-primary" onClick={save} disabled={form.steps.length === 0}>
                                 <Save size={15} /> {editId ? 'Cập nhật' : 'Lưu Test Case'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Data Sets Panel Modal */}
+            {showDataSets && dataSetsTC && (
+                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDataSets(false)}>
+                    <div className="modal" style={{ maxWidth: 800 }}>
+                        <div className="modal-header">
+                            <h3>📊 Data-Driven Testing — {testCases.find(tc => tc.id === dataSetsTC)?.title || dataSetsTC}</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowDataSets(false)}><X size={16} /></button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ padding: '10px 14px', background: '#eff6ff', borderRadius: 8, fontSize: 13, color: '#1d4ed8', marginBottom: 16 }}>
+                                💡 Sử dụng <code style={{ background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{'{{tên_cột}}'}</code> trong các bước test case để thay thế bằng giá trị từ data set.
+                                Ví dụ: <code style={{ background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{'{{email}}'}</code>, <code style={{ background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{'{{password}}'}</code>
+                            </div>
+
+                            <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
+                                <span style={{ fontWeight: 600, fontSize: 14 }}>Danh sách Data Sets ({dataSets.length})</span>
+                                <button className="btn btn-primary btn-sm" onClick={() => { setShowDSUpload(true); setDsName(''); setDsData([]); setDsCsvFile(null) }}>
+                                    <Plus size={13} /> Thêm Data Set
+                                </button>
+                            </div>
+
+                            {dsLoading && <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>Đang tải...</div>}
+
+                            {!dsLoading && dataSets.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)', fontSize: 13 }}>
+                                    Chưa có data set nào. Tạo mới bằng cách upload file CSV hoặc nhập dữ liệu.
+                                </div>
+                            )}
+
+                            {dataSets.map(ds => (
+                                <div key={ds.id} style={{ marginBottom: 10, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                                    <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', cursor: 'pointer' }}
+                                        onClick={() => setExpandedDS(expandedDS === ds.id ? null : ds.id)}>
+                                        {expandedDS === ds.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        <div style={{ flex: 1 }}>
+                                            <strong style={{ fontSize: 13 }}>{ds.name}</strong>
+                                            <span className="text-muted text-sm" style={{ marginLeft: 8 }}>{ds.data?.length || 0} dòng</span>
+                                        </div>
+                                        <span className="text-muted text-sm">{new Date(ds.created_at).toLocaleDateString('vi-VN')}</span>
+                                        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                            <button className="btn btn-sm" onClick={() => runWithDataSet(ds.id)}
+                                                style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                                ▶ Chạy
+                                            </button>
+                                            <button className="btn btn-danger btn-sm" onClick={() => deleteDataSet(ds.id)} style={{ fontSize: 11 }}>
+                                                <Trash2 size={11} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {expandedDS === ds.id && ds.data && ds.data.length > 0 && (
+                                        <div style={{ padding: '8px 14px', maxHeight: 200, overflowY: 'auto', borderTop: '1px solid var(--border)' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ padding: '4px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 11 }}>#</th>
+                                                        {Object.keys(ds.data[0]).map(k => (
+                                                            <th key={k} style={{ padding: '4px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 11 }}>{k}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {ds.data.slice(0, 10).map((row, ri) => (
+                                                        <tr key={ri}>
+                                                            <td style={{ padding: '3px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>{ri + 1}</td>
+                                                            {Object.values(row).map((v, vi) => (
+                                                                <td key={vi} style={{ padding: '3px 8px', borderBottom: '1px solid var(--border)' }}>{v}</td>
+                                                            ))}
+                                                        </tr>
+                                                    ))}
+                                                    {ds.data.length > 10 && (
+                                                        <tr><td colSpan={Object.keys(ds.data[0]).length + 1} style={{ padding: '6px 8px', color: 'var(--text-muted)', textAlign: 'center', fontSize: 11 }}>...và {ds.data.length - 10} dòng nữa</td></tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CSV Upload Modal */}
+            {showDSUpload && (
+                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDSUpload(false)}>
+                    <div className="modal" style={{ maxWidth: 650 }}>
+                        <div className="modal-header">
+                            <h3>Thêm Data Set mới</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowDSUpload(false)}><X size={16} /></button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label className="form-label">Tên Data Set *</label>
+                                <input className="form-control" placeholder="VD: Login data, Signup scenarios..." value={dsName} onChange={e => setDsName(e.target.value)} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Upload file CSV</label>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <button className="btn btn-outline btn-sm" onClick={() => csvRef.current?.click()}>
+                                        <Upload size={13} /> Chọn file CSV
+                                    </button>
+                                    <span className="text-muted text-sm">{dsCsvFile ? dsCsvFile.name : 'Chưa chọn file'}</span>
+                                    <input ref={csvRef} type="file" accept=".csv" style={{ display: 'none' }}
+                                        onChange={e => { if (e.target.files[0]) handleCSVParse(e.target.files[0]) }} />
+                                </div>
+                            </div>
+
+                            {/* CSV Preview */}
+                            {dsData.length > 0 && (
+                                <div style={{ marginTop: 12 }}>
+                                    <label className="form-label">Xem trước ({dsData.length} dòng)</label>
+                                    <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                            <thead>
+                                                <tr style={{ background: '#f8fafc' }}>
+                                                    <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)', fontSize: 11 }}>#</th>
+                                                    {Object.keys(dsData[0]).map(k => (
+                                                        <th key={k} style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)', fontSize: 11 }}>{k}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {dsData.slice(0, 5).map((row, ri) => (
+                                                    <tr key={ri}>
+                                                        <td style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>{ri + 1}</td>
+                                                        {Object.values(row).map((v, vi) => (
+                                                            <td key={vi} style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)' }}>{v}</td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                                {dsData.length > 5 && (
+                                                    <tr><td colSpan={Object.keys(dsData[0]).length + 1} style={{ padding: '6px 8px', color: 'var(--text-muted)', textAlign: 'center', fontSize: 11 }}>...và {dsData.length - 5} dòng nữa</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowDSUpload(false)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={uploadDataSet} disabled={!dsName.trim() || dsData.length === 0}>
+                                <Save size={15} /> Lưu Data Set
                             </button>
                         </div>
                     </div>

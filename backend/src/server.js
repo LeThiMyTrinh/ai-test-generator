@@ -13,6 +13,8 @@ const runsRouter = require('./api/runs');
 const reportsRouter = require('./api/reports');
 const nlparserRouter = require('./api/nlparser');
 const aiRouter = require('./api/ai');
+const dataDrivenRouter = require('./api/datadriven');
+const recorderRouter = require('./api/recorder');
 const { requireAuth } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -47,8 +49,9 @@ if (fs.existsSync(FRONTEND_DIST)) {
     app.use(express.static(FRONTEND_DIST));
 }
 
-// Inject socket.io into runs router
+// Inject socket.io into routers
 runsRouter.setIO(io);
+dataDrivenRouter.setIO(io);
 
 // Auth routes (public — no token required)
 app.use('/api/auth', authRouter);
@@ -61,6 +64,8 @@ app.use('/api/runs', requireAuth, runsRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
 app.use('/api/nl-parser', requireAuth, nlparserRouter);
 app.use('/api/ai', requireAuth, aiRouter);
+app.use('/api/data-sets', requireAuth, dataDrivenRouter);
+app.use('/api/recorder', requireAuth, recorderRouter);
 
 // Socket.IO connection
 io.on('connection', (socket) => {

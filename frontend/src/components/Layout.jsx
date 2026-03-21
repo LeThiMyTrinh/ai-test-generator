@@ -1,4 +1,4 @@
-import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch } from 'lucide-react'
+import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch, Video } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
@@ -10,6 +10,7 @@ const NAV = [
     { id: 'ui-checker', label: 'Kiểm tra UI', Icon: ScanSearch },
     { id: 'monitor', label: 'Live Monitor', Icon: Activity },
     { id: 'history', label: 'Lịch sử chạy', Icon: History },
+    { id: 'recorder', label: 'Record & Replay', Icon: Video },
 ]
 
 export default function Layout({ children, page, navigate, title }) {

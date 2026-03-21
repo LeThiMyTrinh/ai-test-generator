@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import api, { apiUrl } from '../api/client'
-import { FileDown, ChevronDown, ChevronRight, Trash2, RefreshCw, Bug } from 'lucide-react'
+import { FileDown, ChevronDown, ChevronRight, Trash2, RefreshCw, Bug, Camera } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function History({ navigate, ctx }) {
@@ -18,6 +18,9 @@ export default function History({ navigate, ctx }) {
     const [rerunProgress, setRerunProgress] = useState({}) // { runId: { done, total } }
     const [comparisons, setComparisons] = useState({})     // { runId: comparison[] }
     const [priorities, setPriorities] = useState({})       // { 'runId::tcId': 'HIGH' }
+    const [vrLoading, setVrLoading] = useState({})         // { runId: true } loading state for VR ops
+    const [vrResults, setVrResults] = useState({})         // { runId: results[] }
+    const [vrDiffView, setVrDiffView] = useState(null)     // currently viewed diff item
 
     const PRIORITY_OPTIONS = [
         { value: '', label: '-- Chưa gán --', color: '#94a3b8', bg: '#f1f5f9' },
@@ -211,12 +214,75 @@ export default function History({ navigate, ctx }) {
         return opt ? { color: opt.color, background: opt.bg } : {}
     }
 
+    // ========= Visual Regression =========
+    const saveBaseline = async (runId, e) => {
+        e.stopPropagation()
+        setVrLoading(p => ({ ...p, [runId]: true }))
+        try {
+            await api.post(`/api/runs/${runId}/save-baseline`)
+            toast.success('Đã lưu baseline thành công!')
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Lỗi khi lưu baseline')
+        }
+        setVrLoading(p => ({ ...p, [runId]: false }))
+    }
+
+    const visualCompare = async (runId, e) => {
+        e.stopPropagation()
+        setVrLoading(p => ({ ...p, [runId]: true }))
+        try {
+            const res = await api.post(`/api/runs/${runId}/visual-compare`)
+            setVrResults(p => ({ ...p, [runId]: res.data.results }))
+            toast.success('So sánh visual hoàn tất!')
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Lỗi khi so sánh visual')
+        }
+        setVrLoading(p => ({ ...p, [runId]: false }))
+    }
+
+    const acceptVisualChange = async (runId, tcId, stepId) => {
+        try {
+            await api.post(`/api/runs/${runId}/visual-accept`, { test_case_id: tcId, step_id: stepId })
+            toast.success('Đã chấp nhận thay đổi và cập nhật baseline!')
+            setVrResults(p => {
+                const updated = (p[runId] || []).filter(r => !(r.test_case_id === tcId && r.step_id === stepId))
+                return { ...p, [runId]: updated }
+            })
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Lỗi khi chấp nhận thay đổi')
+        }
+    }
+
     return (
         <div>
             {lightbox && (
                 <div className="lightbox" onClick={() => setLightbox(null)}>
                     <button className="lightbox-close">✕</button>
                     <img src={lightbox} alt="evidence" onClick={e => e.stopPropagation()} />
+                </div>
+            )}
+
+            {/* Visual Regression Diff Overlay */}
+            {vrDiffView && (
+                <div className="lightbox" onClick={() => setVrDiffView(null)} style={{ background: 'rgba(0,0,0,0.85)' }}>
+                    <button className="lightbox-close" onClick={() => setVrDiffView(null)}>✕</button>
+                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', maxWidth: '95vw', overflowX: 'auto', padding: 20 }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>BASELINE</div>
+                            <img src={apiUrl(`/${vrDiffView.baseline_path}`)} alt="baseline" style={{ maxHeight: '70vh', borderRadius: 8, border: '2px solid #3b82f6' }} />
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>HIỆN TẠI</div>
+                            <img src={apiUrl(`/${vrDiffView.current_path}`)} alt="current" style={{ maxHeight: '70vh', borderRadius: 8, border: '2px solid #f59e0b' }} />
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>DIFF ({(vrDiffView.diff_percent || 0).toFixed(2)}%)</div>
+                            <img src={apiUrl(`/${vrDiffView.diff_path}`)} alt="diff" style={{ maxHeight: '70vh', borderRadius: 8, border: '2px solid #ef4444' }} />
+                        </div>
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: 12 }}>
+                        <span style={{ color: '#e2e8f0', fontSize: 13 }}>{vrDiffView.test_case_title} — Step #{vrDiffView.step_id}</span>
+                    </div>
                 </div>
             )}
 
@@ -325,6 +391,24 @@ export default function History({ navigate, ctx }) {
                                             {isRerunning ? 'Đang chạy...' : `Rerun Failed`}
                                         </button>
                                     )}
+                                    <button
+                                        className="btn btn-sm"
+                                        onClick={(e) => saveBaseline(run.id, e)}
+                                        disabled={vrLoading[run.id]}
+                                        style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 4 }}
+                                    >
+                                        <Camera size={13} />
+                                        {vrLoading[run.id] ? 'Đang xử lý...' : '📐 Lưu Baseline'}
+                                    </button>
+                                    <button
+                                        className="btn btn-sm"
+                                        onClick={(e) => visualCompare(run.id, e)}
+                                        disabled={vrLoading[run.id]}
+                                        style={{ background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', gap: 4 }}
+                                    >
+                                        <Camera size={13} />
+                                        {vrLoading[run.id] ? 'Đang xử lý...' : '🔍 So sánh Visual'}
+                                    </button>
                                 </div>
                             )}
                             <button
@@ -348,6 +432,62 @@ export default function History({ navigate, ctx }) {
                                 <div className="progress-bar" style={{ height: 6 }}>
                                     <div className="progress-fill" style={{ width: `${progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}%`, background: '#f59e0b' }} />
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Visual Regression Results */}
+                        {vrResults[run.id] && vrResults[run.id].length > 0 && (
+                            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', background: '#faf5ff' }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: '#7c3aed', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    📐 Visual Regression — So sánh với Baseline
+                                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>
+                                        ({vrResults[run.id].filter(r => r.match).length} match, {vrResults[run.id].filter(r => !r.match).length} changed)
+                                    </span>
+                                </div>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid #ddd6fe' }}>
+                                            <th style={{ textAlign: 'left', padding: '6px 10px', color: '#7c3aed', fontSize: 12 }}>Test Case</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#7c3aed', fontSize: 12 }}>Step</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#7c3aed', fontSize: 12 }}>Diff %</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#7c3aed', fontSize: 12 }}>Trạng thái</th>
+                                            <th style={{ textAlign: 'center', padding: '6px 10px', color: '#7c3aed', fontSize: 12 }}>Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {vrResults[run.id].map((vr, vi) => (
+                                            <tr key={vi} style={{ borderBottom: '1px solid #ede9fe' }}>
+                                                <td style={{ padding: '8px 10px', fontWeight: 500 }}>{vr.test_case_title}</td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>#{vr.step_id}</td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                                                    {vr.match ? '0%' : `${(vr.diff_percent || 0).toFixed(2)}%`}
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                                                    {vr.match ? (
+                                                        <span style={{ background: '#dcfce7', color: '#16a34a', fontWeight: 700, padding: '3px 12px', borderRadius: 12, fontSize: 12 }}>✅ Match</span>
+                                                    ) : (
+                                                        <span style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 700, padding: '3px 12px', borderRadius: 12, fontSize: 12 }}>❌ Changed ({(vr.diff_percent || 0).toFixed(1)}%)</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                                                    <div className="flex gap-2" style={{ justifyContent: 'center' }}>
+                                                        {!vr.match && (
+                                                            <>
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => setVrDiffView(vr)} style={{ fontSize: 11 }}>
+                                                                    🔍 Xem Diff
+                                                                </button>
+                                                                <button className="btn btn-sm" onClick={() => acceptVisualChange(run.id, vr.test_case_id, vr.step_id)}
+                                                                    style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0', fontSize: 11 }}>
+                                                                    ✅ Chấp nhận
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
 

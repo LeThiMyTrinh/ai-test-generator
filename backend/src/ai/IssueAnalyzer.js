@@ -7,31 +7,73 @@ class IssueAnalyzer {
     constructor() {
         // Base severity scores for each issue type
         this.baseScores = {
-            'NAVIGATION_ERROR': 100,      // Blocking - cannot access page
-            'BROKEN_IMAGE': 90,           // Very visible, professional issue
-            'JS_ERROR': 85,               // Functionality broken
-            'HORIZONTAL_SCROLLBAR': 80,   // Major UX issue on mobile
-            'BROKEN_LINK': 75,            // User cannot navigate
-            'OVERFLOW_X': 65,             // Layout broken
-            'CONSOLE_ERROR': 60,          // Potential functionality issue
-            'LOW_CONTRAST': 55,           // Accessibility + readability
-            'MISSING_ALT': 50,            // Accessibility + SEO
-            'TEXT_TRUNCATED': 45,         // Content not visible
-            'SMALL_TOUCH_TARGET': 40,     // Mobile usability
-            'OUTSIDE_VIEWPORT': 38,       // Element not visible
-            'DISTORTED_IMAGE': 30,        // Visual quality
-            'RESPONSIVE_HIDDEN': 25,      // Often intentional
-            'ACCESSIBILITY': 50           // Varies by impact
+            // Blocking
+            'NAVIGATION_ERROR': 100,
+            'BROKEN_IMAGE': 90,
+            'JS_ERROR': 85,
+            'HORIZONTAL_SCROLLBAR': 80,
+            'BROKEN_LINK': 75,
+            'OVERFLOW_X': 65,
+            'CONSOLE_ERROR': 60,
+            // Color & Contrast
+            'UNREADABLE_ON_BG': 80,
+            'LOW_CONTRAST': 55,
+            'COLOR_INCONSISTENCY': 35,
+            // Typography
+            'FONT_NOT_LOADED': 70,
+            'FONT_SIZE_TOO_SMALL': 60,
+            'TOO_MANY_FONTS': 35,
+            'LINE_HEIGHT_TIGHT': 30,
+            // Layout
+            'ELEMENT_OVERLAP': 75,
+            'EMPTY_CONTAINER': 35,
+            'IRREGULAR_SPACING': 20,
+            'ALIGNMENT_OFF': 25,
+            // SEO
+            'MISSING_VIEWPORT_META': 85,
+            'MISSING_TITLE': 60,
+            'MISSING_META_DESC': 45,
+            'MISSING_LANG': 40,
+            'MISSING_FAVICON': 35,
+            'MULTIPLE_H1': 35,
+            'HEADING_SKIP': 20,
+            'MISSING_OG_TAGS': 15,
+            // Forms
+            'INPUT_WITHOUT_LABEL': 60,
+            'FORM_NO_SUBMIT': 50,
+            'PLACEHOLDER_AS_LABEL': 40,
+            'MISSING_AUTOCOMPLETE': 15,
+            // Images
+            'OVERSIZED_IMAGE': 40,
+            'CLS_PRONE': 55,
+            'NO_LAZY_LOADING': 20,
+            'NO_WEBP_SUPPORT': 15,
+            // Original
+            'MISSING_ALT': 50,
+            'TEXT_TRUNCATED': 45,
+            'SMALL_TOUCH_TARGET': 40,
+            'OUTSIDE_VIEWPORT': 38,
+            'DISTORTED_IMAGE': 30,
+            'RESPONSIVE_HIDDEN': 25,
+            'ACCESSIBILITY': 50,
+            // Performance
+            'RENDER_BLOCKING_SCRIPT': 45,
+            'TOO_MANY_THIRD_PARTY': 25,
         };
 
         // Issue type categories
         this.categories = {
             blocking: ['NAVIGATION_ERROR', 'JS_ERROR'],
             critical_ux: ['HORIZONTAL_SCROLLBAR', 'BROKEN_IMAGE', 'BROKEN_LINK'],
-            layout: ['OVERFLOW_X', 'OUTSIDE_VIEWPORT', 'RESPONSIVE_HIDDEN'],
-            accessibility: ['MISSING_ALT', 'LOW_CONTRAST', 'SMALL_TOUCH_TARGET', 'ACCESSIBILITY'],
-            visual: ['DISTORTED_IMAGE', 'TEXT_TRUNCATED'],
-            performance: ['CONSOLE_ERROR']
+            layout: ['OVERFLOW_X', 'OUTSIDE_VIEWPORT', 'RESPONSIVE_HIDDEN', 'ELEMENT_OVERLAP', 'EMPTY_CONTAINER', 'IRREGULAR_SPACING', 'ALIGNMENT_OFF'],
+            color_contrast: ['LOW_CONTRAST', 'COLOR_INCONSISTENCY', 'UNREADABLE_ON_BG'],
+            typography: ['TOO_MANY_FONTS', 'FONT_SIZE_TOO_SMALL', 'LINE_HEIGHT_TIGHT', 'FONT_NOT_LOADED'],
+            seo: ['MISSING_TITLE', 'MISSING_META_DESC', 'MISSING_OG_TAGS', 'MISSING_VIEWPORT_META', 'MULTIPLE_H1', 'HEADING_SKIP', 'MISSING_LANG', 'MISSING_FAVICON'],
+            forms: ['INPUT_WITHOUT_LABEL', 'FORM_NO_SUBMIT', 'PLACEHOLDER_AS_LABEL', 'MISSING_AUTOCOMPLETE'],
+            accessibility: ['MISSING_ALT', 'SMALL_TOUCH_TARGET', 'ACCESSIBILITY'],
+            images: ['DISTORTED_IMAGE', 'OVERSIZED_IMAGE', 'CLS_PRONE', 'NO_LAZY_LOADING', 'NO_WEBP_SUPPORT'],
+            visual: ['TEXT_TRUNCATED'],
+            performance: ['CONSOLE_ERROR', 'RENDER_BLOCKING_SCRIPT', 'TOO_MANY_THIRD_PARTY']
         };
     }
 
@@ -249,18 +291,26 @@ class IssueAnalyzer {
      */
     estimateFixEffort(issue) {
         const effortMap = {
-            'MISSING_ALT': 'LOW',           // Just add alt attribute
-            'DISTORTED_IMAGE': 'LOW',       // Fix CSS width/height
-            'TEXT_TRUNCATED': 'LOW',        // Adjust container size
-            'SMALL_TOUCH_TARGET': 'LOW',    // Increase padding
-            'LOW_CONTRAST': 'MEDIUM',       // Change colors
-            'OVERFLOW_X': 'MEDIUM',         // Find and fix overflowing element
-            'BROKEN_LINK': 'MEDIUM',        // Update URL
-            'RESPONSIVE_HIDDEN': 'MEDIUM',  // Adjust responsive CSS
-            'HORIZONTAL_SCROLLBAR': 'HIGH', // Debug complex layout issue
-            'BROKEN_IMAGE': 'MEDIUM',       // Fix image path or upload
-            'JS_ERROR': 'HIGH',             // Debug JavaScript
-            'NAVIGATION_ERROR': 'HIGH'      // Server/routing issue
+            'MISSING_ALT': 'LOW', 'DISTORTED_IMAGE': 'LOW', 'TEXT_TRUNCATED': 'LOW',
+            'SMALL_TOUCH_TARGET': 'LOW', 'LOW_CONTRAST': 'MEDIUM', 'OVERFLOW_X': 'MEDIUM',
+            'BROKEN_LINK': 'MEDIUM', 'RESPONSIVE_HIDDEN': 'MEDIUM',
+            'HORIZONTAL_SCROLLBAR': 'HIGH', 'BROKEN_IMAGE': 'MEDIUM',
+            'JS_ERROR': 'HIGH', 'NAVIGATION_ERROR': 'HIGH',
+            // New types
+            'COLOR_INCONSISTENCY': 'HIGH', 'UNREADABLE_ON_BG': 'LOW',
+            'TOO_MANY_FONTS': 'MEDIUM', 'FONT_SIZE_TOO_SMALL': 'LOW',
+            'LINE_HEIGHT_TIGHT': 'LOW', 'FONT_NOT_LOADED': 'MEDIUM',
+            'ELEMENT_OVERLAP': 'MEDIUM', 'EMPTY_CONTAINER': 'LOW',
+            'IRREGULAR_SPACING': 'MEDIUM', 'ALIGNMENT_OFF': 'MEDIUM',
+            'MISSING_TITLE': 'LOW', 'MISSING_META_DESC': 'LOW',
+            'MISSING_OG_TAGS': 'LOW', 'MISSING_VIEWPORT_META': 'LOW',
+            'MULTIPLE_H1': 'LOW', 'HEADING_SKIP': 'LOW', 'MISSING_LANG': 'LOW',
+            'MISSING_FAVICON': 'LOW',
+            'INPUT_WITHOUT_LABEL': 'LOW', 'FORM_NO_SUBMIT': 'LOW',
+            'PLACEHOLDER_AS_LABEL': 'LOW', 'MISSING_AUTOCOMPLETE': 'LOW',
+            'OVERSIZED_IMAGE': 'MEDIUM', 'CLS_PRONE': 'LOW',
+            'NO_LAZY_LOADING': 'LOW', 'NO_WEBP_SUPPORT': 'MEDIUM',
+            'RENDER_BLOCKING_SCRIPT': 'MEDIUM', 'TOO_MANY_THIRD_PARTY': 'MEDIUM',
         };
 
         return effortMap[issue.type] || 'MEDIUM';
@@ -525,6 +575,210 @@ class IssueAnalyzer {
                 ],
                 difficulty: 'LOW',
                 estimatedTime: '5 phút'
+            },
+
+            // ===== NEW ENHANCED CHECKS =====
+
+            'COLOR_INCONSISTENCY': {
+                title: 'Giảm số lượng màu sắc',
+                description: 'Trang dùng quá nhiều màu khác nhau, thiếu design system',
+                code: `/* Dùng CSS custom properties */\n:root {\n  --color-primary: #1a73e8;\n  --color-secondary: #5f6368;\n  --color-text: #202124;\n  --color-bg: #ffffff;\n}\n\n.text { color: var(--color-text); }`,
+                steps: ['Xác định 4-6 màu chính cho brand', 'Tạo CSS variables cho color palette', 'Thay thế hardcoded colors bằng variables', 'Review lại trên các trang khác'],
+                difficulty: 'MEDIUM', estimatedTime: '30-60 phút'
+            },
+
+            'TOO_MANY_FONTS': {
+                title: 'Giảm số lượng font',
+                description: 'Trang dùng quá nhiều font family, không nhất quán',
+                code: `/* Chọn tối đa 2-3 font */\nbody { font-family: 'Inter', sans-serif; }\nh1, h2, h3 { font-family: 'Playfair Display', serif; }\ncode { font-family: 'Fira Code', monospace; }`,
+                steps: ['Chọn 1 font cho body text, 1 cho headings', 'Xóa các font không cần thiết khỏi @font-face', 'Update CSS cho tất cả elements', 'Kiểm tra font loading performance'],
+                difficulty: 'MEDIUM', estimatedTime: '20-30 phút'
+            },
+
+            'FONT_SIZE_TOO_SMALL': {
+                title: 'Tăng font size',
+                description: 'Font quá nhỏ, khó đọc đặc biệt trên mobile',
+                code: `/* Minimum font sizes */\nbody { font-size: 16px; }\nsmall, .caption { font-size: 12px; /* minimum */ }\n\n/* Responsive */\n@media (max-width: 768px) {\n  body { font-size: 14px; }\n}`,
+                steps: ['Tìm elements có font-size < 12px', 'Tăng lên tối thiểu 12px', 'Test readability trên mobile', 'Cân nhắc dùng rem/em thay px'],
+                difficulty: 'LOW', estimatedTime: '10-15 phút'
+            },
+
+            'FONT_NOT_LOADED': {
+                title: 'Sửa lỗi font không load',
+                description: 'Font chính không tải được, đang hiển thị font fallback',
+                code: `/* Preload font */\n<link rel="preload" href="/fonts/main.woff2" as="font" type="font/woff2" crossorigin>\n\n/* Font-display swap */\n@font-face {\n  font-family: 'MyFont';\n  src: url('/fonts/main.woff2') format('woff2');\n  font-display: swap;\n}`,
+                steps: ['Kiểm tra font file có tồn tại không', 'Check Network tab xem font request có lỗi không', 'Thêm font-display: swap vào @font-face', 'Preload font quan trọng'],
+                difficulty: 'MEDIUM', estimatedTime: '15-20 phút'
+            },
+
+            'LINE_HEIGHT_TIGHT': {
+                title: 'Tăng line-height',
+                description: 'Khoảng cách dòng quá sát, khó đọc',
+                code: `/* Recommended line-heights */\np, li, span { line-height: 1.5; }\nh1, h2, h3 { line-height: 1.3; }`,
+                steps: ['Tìm elements có line-height < 1.2', 'Tăng lên 1.4-1.6 cho body text', 'Headings có thể dùng 1.2-1.3', 'Test readability'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'ELEMENT_OVERLAP': {
+                title: 'Sửa element bị chồng chéo',
+                description: 'Hai element đang đè lên nhau',
+                steps: ['Inspect cả 2 element trong DevTools', 'Kiểm tra position, z-index, margin', 'Điều chỉnh spacing hoặc z-index', 'Test trên nhiều viewport sizes'],
+                difficulty: 'MEDIUM', estimatedTime: '15-30 phút'
+            },
+
+            'EMPTY_CONTAINER': {
+                title: 'Xử lý container rỗng',
+                description: 'Container lớn không có nội dung',
+                steps: ['Kiểm tra xem container có nên chứa nội dung không', 'Nếu intentional: thêm min-height phù hợp', 'Nếu bug: thêm nội dung hoặc ẩn container', 'Nếu loading state: thêm skeleton/placeholder'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'IRREGULAR_SPACING': {
+                title: 'Chuẩn hóa spacing',
+                description: 'Khoảng cách giữa các element không đều',
+                code: `/* Dùng spacing scale nhất quán (4px grid) */\n:root {\n  --space-xs: 4px;\n  --space-sm: 8px;\n  --space-md: 16px;\n  --space-lg: 24px;\n  --space-xl: 32px;\n}\n\n.card + .card { margin-top: var(--space-md); }`,
+                steps: ['Xác định spacing scale (4px hoặc 8px grid)', 'Tạo CSS variables cho spacing', 'Áp dụng nhất quán', 'Review trên nhiều viewport'],
+                difficulty: 'MEDIUM', estimatedTime: '20-30 phút'
+            },
+
+            'MISSING_TITLE': {
+                title: 'Thêm/sửa page title',
+                description: 'Trang thiếu hoặc title không tối ưu',
+                code: `<head>\n  <title>Tên trang - Tên website | Mô tả ngắn</title>\n</head>`,
+                steps: ['Thêm thẻ <title> trong <head>', 'Title nên 30-60 ký tự', 'Bao gồm keyword chính', 'Mỗi trang cần title riêng biệt'],
+                difficulty: 'LOW', estimatedTime: '2-5 phút'
+            },
+
+            'MISSING_META_DESC': {
+                title: 'Thêm meta description',
+                description: 'Thiếu mô tả trang, ảnh hưởng SEO',
+                code: `<meta name="description" content="Mô tả ngắn gọn về nội dung trang (120-160 ký tự)">`,
+                steps: ['Thêm meta description trong <head>', 'Nên 120-160 ký tự', 'Mô tả chính xác nội dung trang', 'Bao gồm keyword target'],
+                difficulty: 'LOW', estimatedTime: '2-5 phút'
+            },
+
+            'MISSING_OG_TAGS': {
+                title: 'Thêm Open Graph tags',
+                description: 'Thiếu OG tags, link share lên MXH sẽ không đẹp',
+                code: `<meta property="og:title" content="Tiêu đề trang">\n<meta property="og:description" content="Mô tả">\n<meta property="og:image" content="https://example.com/image.jpg">\n<meta property="og:url" content="https://example.com/page">`,
+                steps: ['Thêm og:title, og:description, og:image', 'og:image nên 1200×630px', 'Test với Facebook Debugger', 'Mỗi trang cần OG riêng'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'MISSING_VIEWPORT_META': {
+                title: 'Thêm viewport meta tag',
+                description: 'Thiếu viewport meta → trang không responsive',
+                code: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
+                steps: ['Thêm viewport meta tag trong <head>', 'Đây là tag bắt buộc cho responsive design', 'Không dùng maximum-scale=1 (chặn zoom)', 'Test trên mobile sau khi thêm'],
+                difficulty: 'LOW', estimatedTime: '1 phút'
+            },
+
+            'MULTIPLE_H1': {
+                title: 'Sửa heading structure',
+                description: 'Trang nên chỉ có 1 thẻ H1',
+                steps: ['Xác định H1 chính của trang', 'Đổi các H1 khác thành H2 hoặc thấp hơn', 'Đảm bảo heading hierarchy đúng (H1→H2→H3)', 'Test SEO với Lighthouse'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'HEADING_SKIP': {
+                title: 'Sửa heading hierarchy',
+                description: 'Heading nhảy cấp (ví dụ H2→H4), ảnh hưởng accessibility',
+                steps: ['Review tất cả headings trên trang', 'Đảm bảo thứ tự H1→H2→H3→H4 không bỏ cấp', 'Styling nên dùng CSS class, không phải heading level', 'Test với screen reader'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'MISSING_LANG': {
+                title: 'Thêm lang attribute',
+                description: 'Thẻ HTML thiếu ngôn ngữ',
+                code: `<html lang="vi">\n<!-- hoặc -->\n<html lang="en">`,
+                steps: ['Thêm lang="vi" hoặc lang="en" vào thẻ <html>', 'Chọn đúng language code', 'Quan trọng cho screen readers và SEO'],
+                difficulty: 'LOW', estimatedTime: '1 phút'
+            },
+
+            'MISSING_FAVICON': {
+                title: 'Thêm favicon',
+                description: 'Trang thiếu icon trên tab trình duyệt',
+                code: `<link rel="icon" type="image/png" href="/favicon.png">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">`,
+                steps: ['Tạo favicon 32×32px và 180×180px', 'Đặt trong thư mục public/root', 'Thêm link tags trong <head>', 'Test trên nhiều trình duyệt'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'INPUT_WITHOUT_LABEL': {
+                title: 'Thêm label cho input',
+                description: 'Input không có label, screen reader không đọc được',
+                code: `<!-- Option 1: Explicit label -->\n<label for="email">Email</label>\n<input id="email" type="email">\n\n<!-- Option 2: aria-label -->\n<input type="email" aria-label="Email address">`,
+                steps: ['Tìm input thiếu label', 'Thêm <label for="id"> hoặc aria-label', 'Không dùng placeholder thay label', 'Test với screen reader'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'FORM_NO_SUBMIT': {
+                title: 'Thêm nút Submit cho form',
+                description: 'Form không có nút gửi',
+                code: `<form>\n  <!-- ... inputs ... -->\n  <button type="submit">Gửi</button>\n</form>`,
+                steps: ['Thêm button type="submit" trong form', 'Đảm bảo button có text rõ ràng', 'Test form submission'],
+                difficulty: 'LOW', estimatedTime: '2-5 phút'
+            },
+
+            'PLACEHOLDER_AS_LABEL': {
+                title: 'Thay placeholder bằng label',
+                description: 'Placeholder biến mất khi nhập, không phải label thay thế',
+                steps: ['Thêm <label> cho input', 'Giữ placeholder làm gợi ý bổ sung', 'Label phải luôn hiển thị', 'Test UX khi nhập dữ liệu'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'OVERSIZED_IMAGE': {
+                title: 'Tối ưu kích thước ảnh',
+                description: 'Ảnh gốc lớn hơn nhiều so với hiển thị, lãng phí bandwidth',
+                code: `<!-- Dùng srcset cho responsive images -->\n<img src="image-800.jpg"\n     srcset="image-400.jpg 400w, image-800.jpg 800w, image-1200.jpg 1200w"\n     sizes="(max-width: 768px) 100vw, 50vw">`,
+                steps: ['Resize ảnh về đúng kích thước hiển thị', 'Dùng srcset cho nhiều kích thước', 'Nén ảnh (TinyPNG, Squoosh)', 'Cân nhắc dùng WebP/AVIF'],
+                difficulty: 'MEDIUM', estimatedTime: '10-20 phút'
+            },
+
+            'CLS_PRONE': {
+                title: 'Thêm width/height cho ảnh',
+                description: 'Ảnh thiếu kích thước gây layout shift khi load',
+                code: `<!-- Thêm width và height attributes -->\n<img src="photo.jpg" width="800" height="600" alt="...">\n\n/* CSS để giữ responsive */\nimg {\n  width: 100%;\n  height: auto;\n}`,
+                steps: ['Thêm width và height attributes cho img', 'Hoặc dùng aspect-ratio CSS property', 'Browser sẽ reserve đúng space trước khi ảnh load', 'Kiểm tra CLS score với Lighthouse'],
+                difficulty: 'LOW', estimatedTime: '5-10 phút'
+            },
+
+            'NO_LAZY_LOADING': {
+                title: 'Thêm lazy loading cho ảnh',
+                description: 'Ảnh ngoài viewport nên lazy load để tăng tốc trang',
+                code: `<img src="photo.jpg" loading="lazy" alt="...">`,
+                steps: ['Thêm loading="lazy" cho ảnh below-fold', 'KHÔNG lazy load ảnh above-fold (hero, logo)', 'Test tốc độ tải trang sau khi thêm'],
+                difficulty: 'LOW', estimatedTime: '5 phút'
+            },
+
+            'RENDER_BLOCKING_SCRIPT': {
+                title: 'Sửa render-blocking scripts',
+                description: 'Scripts trong <head> chặn render trang',
+                code: `<!-- Before (blocking) -->\n<script src="app.js"></script>\n\n<!-- After (non-blocking) -->\n<script src="app.js" defer></script>\n<!-- hoặc -->\n<script src="analytics.js" async></script>`,
+                steps: ['Thêm defer cho scripts cần DOM', 'Thêm async cho scripts độc lập (analytics)', 'Di chuyển non-critical scripts xuống cuối body', 'Test trang vẫn hoạt động đúng'],
+                difficulty: 'MEDIUM', estimatedTime: '10-15 phút'
+            },
+
+            'TOO_MANY_THIRD_PARTY': {
+                title: 'Giảm third-party scripts',
+                description: 'Quá nhiều scripts bên thứ 3 ảnh hưởng tốc độ',
+                steps: ['Audit tất cả third-party scripts', 'Xóa scripts không còn sử dụng', 'Lazy load non-critical scripts', 'Cân nhắc self-host critical scripts'],
+                difficulty: 'MEDIUM', estimatedTime: '30-60 phút'
+            },
+
+            'MISSING_AUTOCOMPLETE': {
+                title: 'Thêm autocomplete cho input',
+                description: 'Input thiếu autocomplete, UX không tối ưu',
+                code: `<input type="email" name="email" autocomplete="email">\n<input type="tel" name="phone" autocomplete="tel">\n<input type="text" name="name" autocomplete="name">`,
+                steps: ['Thêm autocomplete attribute phù hợp', 'email → autocomplete="email"', 'phone → autocomplete="tel"', 'name → autocomplete="name"'],
+                difficulty: 'LOW', estimatedTime: '2-5 phút'
+            },
+
+            'NO_WEBP_SUPPORT': {
+                title: 'Thêm WebP/AVIF support',
+                description: 'Chỉ dùng JPG/PNG, thiếu format hiện đại',
+                code: `<picture>\n  <source srcset="image.avif" type="image/avif">\n  <source srcset="image.webp" type="image/webp">\n  <img src="image.jpg" alt="...">\n</picture>`,
+                steps: ['Convert ảnh sang WebP (giảm 25-35%)', 'Dùng <picture> element cho fallback', 'Hoặc cấu hình CDN tự động convert', 'Test trên Safari và các browser cũ'],
+                difficulty: 'MEDIUM', estimatedTime: '20-30 phút'
             }
         };
 

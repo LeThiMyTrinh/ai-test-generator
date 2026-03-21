@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo UI Checker - <%= record.url %></title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a202c; font-size: 13px; }
+        .header { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; padding: 32px 48px; }
+        .header h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .header p { font-size: 13px; opacity: 0.85; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+        .card { background: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center; }
+        .card .value { font-size: 28px; font-weight: 700; }
+        .card .label { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .section { background: white; border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .section h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        th { background: #f8fafc; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #64748b; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge-critical { background: #fee2e2; color: #991b1b; }
+        .badge-high { background: #fff7ed; color: #c2410c; }
+        .badge-medium { background: #fefce8; color: #a16207; }
+        .badge-low { background: #f0fdf4; color: #15803d; }
+        .score-circle { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; margin: 0 auto 4px; }
+        .screenshot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+        .screenshot-grid img { width: 100%; border-radius: 6px; border: 1px solid #e2e8f0; display: block; }
+        .screenshot-label { font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+        .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 16px; }
+        .category-card { padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .category-card.pass { background: #f0fdf4; border-color: #bbf7d0; }
+        .category-card.fail { background: #fef2f2; border-color: #fecaca; }
+        .autofix { background: #f0fdf4; border-radius: 6px; padding: 10px 12px; margin-top: 6px; }
+        .autofix pre { background: #1e293b; color: #e2e8f0; padding: 8px 10px; border-radius: 4px; font-size: 11px; overflow-x: auto; margin-top: 6px; }
+        .test-passed { background: #f0fdf4; }
+        .test-failed { background: #fef2f2; }
+        .test-warning { background: #fefce8; }
+        .grade-badge { font-size: 36px; font-weight: 800; }
+        .footer { text-align: center; padding: 20px; color: #94a3b8; font-size: 11px; }
+        @media print {
+            body { background: white; }
+            .section { box-shadow: none; border: 1px solid #e2e8f0; break-inside: avoid; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1><% if (record.type === 'enhanced') { %>Báo cáo Kiểm tra UI nâng cao<% } else if (record.type === 'design-compare') { %>Báo cáo So sánh Design vs Code<% } else if (record.type === 'interaction') { %>Báo cáo Test Tương tác<% } %></h1>
+        <p>URL: <%= record.url %> | Ngày: <%= generatedAt %></p>
+    </div>
+
+    <div class="container">
+        <!-- Meta info -->
+        <div class="section" style="margin-bottom: 16px;">
+            <table>
+                <tr><td style="width:140px;font-weight:600">URL</td><td><%= record.url %></td></tr>
+                <tr><td style="font-weight:600">Loại kiểm tra</td><td><%= record.type === 'enhanced' ? 'Kiểm tra UI nâng cao (35+ checks)' : record.type === 'design-compare' ? 'So sánh Design vs Code' : 'Test tương tác' %></td></tr>
+                <tr><td style="font-weight:600">Thời gian chạy</td><td><%= record.created_at %></td></tr>
+                <% if (record.result && record.result.summary && record.result.summary.duration_ms) { %>
+                <tr><td style="font-weight:600">Thời gian thực thi</td><td><%= (record.result.summary.duration_ms / 1000).toFixed(1) %>s</td></tr>
+                <% } %>
+            </table>
+        </div>
+
+        <% if (record.type === 'enhanced' && record.result) { %>
+        <!-- ===== ENHANCED UI CHECK REPORT ===== -->
+        <% const summary = record.result.summary; %>
+
+        <!-- Score + summary cards -->
+        <div class="meta-grid">
+            <div class="card">
+                <% const score = summary.qualityScore || 0; const scoreColor = score >= 90 ? '#16a34a' : score >= 70 ? '#ca8a04' : score >= 50 ? '#ea580c' : '#dc2626'; %>
+                <div class="score-circle" style="border: 4px solid <%= scoreColor %>; color: <%= scoreColor %>"><%= score %></div>
+                <div class="label">Quality Score</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #dc2626"><%= summary.total || 0 %></div>
+                <div class="label">Issues</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #475569"><%= summary.systematicProblems || 0 %></div>
+                <div class="label">Systematic</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #94a3b8"><%= summary.likelyFalsePositives || 0 %></div>
+                <div class="label">False Positives</div>
+            </div>
+        </div>
+
+        <!-- Priority breakdown -->
+        <% if (summary.byPriority) { %>
+        <div class="section">
+            <h2>Phân loại theo mức độ</h2>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <% Object.entries(summary.byPriority).forEach(([p, count]) => { %>
+                <div style="padding:8px 16px;background:#f8fafc;border-radius:8px;text-align:center">
+                    <div style="font-size:20px;font-weight:700"><%= count %></div>
+                    <div style="font-size:11px;color:#64748b"><%= p %></div>
+                </div>
+                <% }); %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Category overview -->
+        <% if (summary.checkCategories) { %>
+        <div class="section">
+            <h2>Kết quả theo danh mục</h2>
+            <div class="category-grid">
+                <% Object.entries(summary.checkCategories).forEach(([key, cat]) => { %>
+                <div class="category-card <%= cat.total === 0 ? 'pass' : 'fail' %>">
+                    <div style="font-weight:600;font-size:12px"><%= cat.label %></div>
+                    <div style="font-size:11px;margin-top:2px"><%= cat.total === 0 ? '✅ Passed' : cat.total + ' vấn đề' %></div>
+                </div>
+                <% }); %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Screenshots -->
+        <% if (screenshots.desktop || screenshots.tablet || screenshots.mobile) { %>
+        <div class="section">
+            <h2>Screenshots</h2>
+            <div class="screenshot-grid">
+                <% ['desktop', 'tablet', 'mobile'].forEach(vp => { if (screenshots[vp]) { %>
+                <div>
+                    <div class="screenshot-label"><%= vp === 'desktop' ? '🖥️ Desktop' : vp === 'tablet' ? '📱 Tablet' : '📲 Mobile' %></div>
+                    <img src="<%= screenshots[vp] %>" alt="<%= vp %>" />
+                </div>
+                <% }}); %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Issue table -->
+        <% if (record.result.issues && record.result.issues.length > 0) { %>
+        <div class="section">
+            <h2>Chi tiết Issues (<%= record.result.issues.length %>)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Severity</th>
+                        <th>Type</th>
+                        <th>Mô tả</th>
+                        <th>Viewport</th>
+                        <th>Selector</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% record.result.issues.forEach((issue, idx) => { %>
+                    <tr>
+                        <td><%= idx + 1 %></td>
+                        <td><span class="badge badge-<%= (issue.severity || '').toLowerCase() %>"><%= issue.severity %></span></td>
+                        <td><%= issue.type %></td>
+                        <td><%= (issue.description || '').substring(0, 120) %></td>
+                        <td><%= issue.viewport || '-' %></td>
+                        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:11px"><%= issue.selector || '-' %></td>
+                    </tr>
+                    <% if (issue.autoFix) { %>
+                    <tr>
+                        <td></td>
+                        <td colspan="5">
+                            <div class="autofix">
+                                <strong>💡 <%= issue.autoFix.title %></strong>
+                                <% if (issue.autoFix.description) { %><div style="font-size:12px;color:#475569;margin-top:2px"><%= issue.autoFix.description %></div><% } %>
+                                <% if (issue.autoFix.code) { %><pre><%= issue.autoFix.code %></pre><% } %>
+                            </div>
+                        </td>
+                    </tr>
+                    <% } %>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+        <% } %>
+
+        <% } else if (record.type === 'design-compare' && record.result) { %>
+        <!-- ===== DESIGN COMPARE REPORT ===== -->
+        <% const ds = record.result.summary || {}; %>
+
+        <div class="meta-grid">
+            <div class="card">
+                <div class="grade-badge" style="color: <%= {'A+':'#16a34a','A':'#22c55e','B':'#84cc16','C':'#eab308','D':'#f97316','F':'#ef4444'}[ds.grade] || '#64748b' %>"><%= ds.grade %></div>
+                <div class="label">Grade</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: <%= (record.result.matchPercent||0) >= 90 ? '#16a34a' : (record.result.matchPercent||0) >= 70 ? '#ca8a04' : '#dc2626' %>"><%= record.result.matchPercent %>%</div>
+                <div class="label">Khớp</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #475569"><%= ds.totalRegions || 0 %></div>
+                <div class="label">Vùng khác biệt</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: <%= ds.colorPaletteMatch ? '#16a34a' : '#ca8a04' %>"><%= ds.colorPaletteMatch ? '✅' : '⚠️' %></div>
+                <div class="label">Color Palette</div>
+            </div>
+        </div>
+
+        <% if (ds.verdict) { %>
+        <div class="section">
+            <p style="font-size:14px;color:#475569"><%= ds.verdict %></p>
+        </div>
+        <% } %>
+
+        <!-- Design screenshots -->
+        <% if (screenshots.design || screenshots.page || screenshots.diff) { %>
+        <div class="section">
+            <h2>So sánh hình ảnh</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                <% if (screenshots.design) { %>
+                <div>
+                    <div class="screenshot-label">🎨 Design</div>
+                    <img src="<%= screenshots.design %>" alt="Design" style="width:100%;border-radius:6px;border:1px solid #e2e8f0" />
+                </div>
+                <% } %>
+                <% if (screenshots.page) { %>
+                <div>
+                    <div class="screenshot-label">🌐 Trang thực tế</div>
+                    <img src="<%= screenshots.page %>" alt="Page" style="width:100%;border-radius:6px;border:1px solid #e2e8f0" />
+                </div>
+                <% } %>
+            </div>
+            <% if (screenshots.diff) { %>
+            <div>
+                <div class="screenshot-label">🔴 Diff</div>
+                <img src="<%= screenshots.diff %>" alt="Diff" style="width:100%;border-radius:6px;border:1px solid #e2e8f0" />
+            </div>
+            <% } %>
+        </div>
+        <% } %>
+
+        <!-- Diff regions / issues -->
+        <% if (record.result.issues && record.result.issues.length > 0) { %>
+        <div class="section">
+            <h2>Vùng khác biệt chi tiết (<%= record.result.issues.length %>)</h2>
+            <table>
+                <thead><tr><th>#</th><th>Severity</th><th>Mô tả</th></tr></thead>
+                <tbody>
+                    <% record.result.issues.forEach((issue, idx) => { %>
+                    <tr>
+                        <td><%= idx + 1 %></td>
+                        <td><span class="badge badge-<%= (issue.severity||'').toLowerCase() %>"><%= issue.severity %></span></td>
+                        <td><%= issue.description %></td>
+                    </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+        <% } %>
+
+        <% } else if (record.type === 'interaction' && record.result) { %>
+        <!-- ===== INTERACTION TEST REPORT ===== -->
+        <% const is = record.result.summary || {}; %>
+
+        <div class="meta-grid">
+            <div class="card">
+                <div class="value" style="color: #16a34a"><%= is.passed || 0 %></div>
+                <div class="label">Passed</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #dc2626"><%= is.failed || 0 %></div>
+                <div class="label">Failed</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #ca8a04"><%= is.warnings || 0 %></div>
+                <div class="label">Warnings</div>
+            </div>
+            <div class="card">
+                <div class="value" style="color: #7c3aed"><%= is.errors || 0 %></div>
+                <div class="label">Errors</div>
+            </div>
+        </div>
+
+        <!-- Verdict -->
+        <div class="section" style="background: <%= is.verdict === 'PASS' ? '#f0fdf4' : is.verdict === 'WARNING' ? '#fefce8' : '#fef2f2' %>">
+            <p style="font-weight:600;font-size:14px"><%= is.verdict === 'PASS' ? '✅' : is.verdict === 'WARNING' ? '⚠️' : '❌' %> <%= is.verdictText %></p>
+            <p style="font-size:12px;color:#64748b;margin-top:4px">Pass rate: <%= is.passRate %>% | Tổng: <%= is.totalTests %> tests | Thời gian: <%= ((is.duration_ms||0)/1000).toFixed(1) %>s</p>
+        </div>
+
+        <!-- Discovery -->
+        <% if (is.discovery) { %>
+        <div class="section">
+            <h2>Phát hiện Elements</h2>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div>🔍 Tổng: <strong><%= is.discovery.totalInteractive %></strong></div>
+                <div>📝 Forms: <strong><%= is.discovery.forms %></strong></div>
+                <div>🔗 Nav Links: <strong><%= is.discovery.navLinks %></strong></div>
+                <div>🔘 Buttons: <strong><%= is.discovery.buttons %></strong></div>
+                <div>📦 Modals: <strong><%= is.discovery.modals %></strong></div>
+                <div>📋 Dropdowns: <strong><%= is.discovery.dropdowns %></strong></div>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Chaos test -->
+        <% if (is.chaosTest) { %>
+        <div class="section" style="background: <%= is.chaosTest.pageStillResponsive ? '#f0fdf4' : '#fef2f2' %>">
+            <h2>🐒 Chaos Test</h2>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px">
+                <span>Actions: <strong><%= is.chaosTest.actions %></strong></span>
+                <span>JS Errors: <strong style="color:<%= is.chaosTest.jsErrors > 0 ? '#dc2626' : '#16a34a' %>"><%= is.chaosTest.jsErrors %></strong></span>
+                <span>Console Errors: <strong><%= is.chaosTest.consoleErrors %></strong></span>
+                <span>Responsive: <strong style="color:<%= is.chaosTest.pageStillResponsive ? '#16a34a' : '#dc2626' %>"><%= is.chaosTest.pageStillResponsive ? 'Có' : 'KHÔNG' %></strong></span>
+            </div>
+            <p style="font-weight:600;color:<%= is.chaosTest.verdict && is.chaosTest.verdict.startsWith('PASS') ? '#16a34a' : '#dc2626' %>"><%= is.chaosTest.verdict %></p>
+        </div>
+        <% } %>
+
+        <!-- Test list -->
+        <% if (record.result.tests && record.result.tests.length > 0) { %>
+        <div class="section">
+            <h2>Chi tiết Tests (<%= record.result.tests.length %>)</h2>
+            <table>
+                <thead><tr><th>#</th><th>Status</th><th>Type</th><th>Tên</th><th>Chi tiết</th><th>Thời gian</th></tr></thead>
+                <tbody>
+                    <% record.result.tests.forEach((test, idx) => { %>
+                    <tr class="test-<%= test.status %>">
+                        <td><%= idx + 1 %></td>
+                        <td><%= test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : test.status === 'warning' ? '⚠️' : '💥' %> <%= test.status %></td>
+                        <td><%= test.type %></td>
+                        <td><%= test.name %></td>
+                        <td style="max-width:300px"><%= (test.details || '').substring(0, 150) %></td>
+                        <td><%= test.duration_ms %>ms</td>
+                    </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+        <% } %>
+
+        <% } %>
+    </div>
+
+    <div class="footer">
+        Báo cáo được tạo bởi AutoTest Tool | <%= generatedAt %>
+    </div>
+</body>
+
+</html>

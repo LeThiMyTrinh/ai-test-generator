@@ -1,10 +1,8 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import api, { apiUrl, baseURL } from '../api/client'
 import toast from 'react-hot-toast'
 import { io } from 'socket.io-client'
-import { PlayCircle, CheckCircle, XCircle, Clock, Image, Bug } from 'lucide-react'
-
-let socket = null
+import { PlayCircle, CheckCircle, XCircle, Clock, Image, Bug, StopCircle, PauseCircle, PlayIcon } from 'lucide-react'
 
 export default function Monitor({ navigate, ctx }) {
     const { suite_id, suite_name } = ctx || {}
@@ -15,12 +13,35 @@ export default function Monitor({ navigate, ctx }) {
     const [suiteTestCases, setSuiteTestCases] = useState([])
     const [selectedTcIds, setSelectedTcIds] = useState([])
     const [runId, setRunId] = useState(null)
-    const [status, setStatus] = useState('idle')
+    const [status, setStatus] = useState('idle') // idle | running | paused | done | error | cancelled
     const [tcResults, setTcResults] = useState({})
     const [summary, setSummary] = useState(null)
     const [progress, setProgress] = useState({ done: 0, total: 0 })
     const [lightbox, setLightbox] = useState(null)
-    const logRef = useRef()
+
+    // Run options
+    const [continueOnFailure, setContinueOnFailure] = useState(false)
+    const [retryCount, setRetryCount] = useState(0)
+    const [concurrency, setConcurrency] = useState(1)
+
+    // Refs for Socket.IO and batched updates
+    const socketRef = useRef(null)
+    const pendingStepsRef = useRef({})
+    const flushTimerRef = useRef(null)
+
+    // Flush batched step updates every 300ms to avoid excessive re-renders
+    const flushStepUpdates = useCallback(() => {
+        const pending = pendingStepsRef.current
+        if (Object.keys(pending).length === 0) return
+        setTcResults(prev => {
+            const next = { ...prev }
+            for (const [tcId, steps] of Object.entries(pending)) {
+                next[tcId] = { ...next[tcId], steps: [...(next[tcId]?.steps || []), ...steps] }
+            }
+            return next
+        })
+        pendingStepsRef.current = {}
+    }, [])
 
     // Load projects
     useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
@@ -31,23 +52,37 @@ export default function Monitor({ navigate, ctx }) {
         api.get(url).then(r => setSuites(r.data))
     }, [selectedProject])
 
-    // Socket.IO
+    // Socket.IO — proper lifecycle with cleanup
     useEffect(() => {
-        socket = io(baseURL || window.location.origin)
-        socket.on('tc_start', ({ tcId, title }) => {
+        const sock = io(baseURL || window.location.origin, { transports: ['websocket', 'polling'] })
+        socketRef.current = sock
+
+        sock.on('tc_start', ({ tcId, title }) => {
+            flushStepUpdates() // flush any pending before new TC
             setTcResults(p => ({ ...p, [tcId]: { title, status: 'RUNNING', steps: [] } }))
         })
-        socket.on('step_done', ({ tcId, step }) => {
-            setTcResults(p => ({ ...p, [tcId]: { ...p[tcId], steps: [...(p[tcId]?.steps || []), step] } }))
+        sock.on('step_done', ({ tcId, step }) => {
+            // Batch step updates instead of re-rendering per step
+            if (!pendingStepsRef.current[tcId]) pendingStepsRef.current[tcId] = []
+            pendingStepsRef.current[tcId].push(step)
+            clearTimeout(flushTimerRef.current)
+            flushTimerRef.current = setTimeout(flushStepUpdates, 300)
         })
-        socket.on('tc_done', ({ tcId, result }) => {
+        sock.on('tc_done', ({ tcId, result }) => {
+            flushStepUpdates() // flush remaining steps for this TC
             setTcResults(p => ({ ...p, [tcId]: { ...p[tcId], status: result.status, error: result.error_message, videoPath: result.video_path } }))
             setProgress(p => ({ ...p, done: p.done + 1 }))
         })
-        socket.on('run_done', ({ summary }) => { setSummary(summary); setStatus('done') })
-        socket.on('run_error', ({ error }) => { toast.error(error); setStatus('error') })
-        return () => socket?.disconnect()
-    }, [])
+        sock.on('run_done', ({ summary }) => { flushStepUpdates(); setSummary(summary); setStatus('done') })
+        sock.on('run_error', ({ error }) => { toast.error(error); setStatus('error') })
+        sock.on('run_cancelled', () => { flushStepUpdates(); setStatus('cancelled'); toast('Run đã bị hủy') })
+
+        return () => {
+            clearTimeout(flushTimerRef.current)
+            sock.disconnect()
+            socketRef.current = null
+        }
+    }, [flushStepUpdates])
 
     // Load test cases khi đổi Suite
     useEffect(() => {
@@ -99,11 +134,41 @@ export default function Monitor({ navigate, ctx }) {
         try {
             const r = await api.post('/api/runs', {
                 suite_id: selectedSuite,
-                test_case_ids: selectedTcIds
+                test_case_ids: selectedTcIds,
+                continueOnFailure,
+                retryCount,
+                concurrency,
             })
             setRunId(r.data.run_id)
             toast.success('Đã bắt đầu chạy test!')
         } catch (e) { toast.error(e.response?.data?.error || 'Lỗi'); setStatus('idle') }
+    }
+
+    const cancelRun = async () => {
+        if (!runId) return
+        try {
+            await api.post(`/api/runs/${runId}/cancel`)
+            setStatus('cancelled')
+            toast('Đã gửi yêu cầu hủy')
+        } catch (e) { toast.error('Lỗi hủy: ' + (e.response?.data?.error || e.message)) }
+    }
+
+    const pauseRun = async () => {
+        if (!runId) return
+        try {
+            await api.post(`/api/runs/${runId}/pause`)
+            setStatus('paused')
+            toast('Đã tạm dừng')
+        } catch (e) { toast.error(e.response?.data?.error || e.message) }
+    }
+
+    const resumeRun = async () => {
+        if (!runId) return
+        try {
+            await api.post(`/api/runs/${runId}/resume`)
+            setStatus('running')
+            toast('Đã tiếp tục chạy')
+        } catch (e) { toast.error(e.response?.data?.error || e.message) }
     }
 
     // Polling fallback: nếu Socket.IO không kết nối được, poll API mỗi 5s
@@ -176,15 +241,66 @@ export default function Monitor({ navigate, ctx }) {
                             {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} TC)</option>)}
                         </select>
                     </div>
-                    <div style={{ marginTop: 22 }}>
-                        <button className="btn btn-success" onClick={startRun} disabled={status === 'running' || !selectedSuite || selectedTcIds.length === 0}>
-                            <PlayCircle size={17} /> {status === 'running' ? 'Đang chạy...' : `Bắt đầu chạy (${selectedTcIds.length})`}
-                        </button>
+                    <div style={{ marginTop: 22, display: 'flex', gap: 6 }}>
+                        {(status === 'idle' || status === 'done' || status === 'error' || status === 'cancelled') && (
+                            <button className="btn btn-success" onClick={startRun} disabled={!selectedSuite || selectedTcIds.length === 0}>
+                                <PlayCircle size={17} /> Bắt đầu chạy ({selectedTcIds.length})
+                            </button>
+                        )}
+                        {status === 'running' && (
+                            <>
+                                <button className="btn" style={{ background: '#f59e0b', color: '#fff', border: 'none' }} onClick={pauseRun}>
+                                    <PauseCircle size={17} /> Tạm dừng
+                                </button>
+                                <button className="btn" style={{ background: '#ef4444', color: '#fff', border: 'none' }} onClick={cancelRun}>
+                                    <StopCircle size={17} /> Hủy
+                                </button>
+                            </>
+                        )}
+                        {status === 'paused' && (
+                            <>
+                                <button className="btn btn-success" onClick={resumeRun}>
+                                    <PlayIcon size={17} /> Tiếp tục
+                                </button>
+                                <button className="btn" style={{ background: '#ef4444', color: '#fff', border: 'none' }} onClick={cancelRun}>
+                                    <StopCircle size={17} /> Hủy
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
+                {/* Run Options */}
+                {selectedSuite && (status === 'idle' || status === 'done' || status === 'error' || status === 'cancelled') && (
+                    <div style={{ marginTop: 16, padding: '12px 16px', background: '#f8fafc', borderRadius: 8, border: '1px solid var(--border)', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={continueOnFailure} onChange={e => setContinueOnFailure(e.target.checked)} style={{ width: 15, height: 15 }} />
+                            Chạy tiếp khi fail
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Retry:
+                            <select value={retryCount} onChange={e => setRetryCount(parseInt(e.target.value))} className="form-control" style={{ width: 60, padding: '3px 6px', fontSize: 13 }}>
+                                <option value={0}>0</option>
+                                <option value={1}>1</option>
+                                <option value={2}>2</option>
+                                <option value={3}>3</option>
+                            </select>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Song song:
+                            <select value={concurrency} onChange={e => setConcurrency(parseInt(e.target.value))} className="form-control" style={{ width: 60, padding: '3px 6px', fontSize: 13 }}>
+                                <option value={1}>1</option>
+                                <option value={2}>2</option>
+                                <option value={3}>3</option>
+                                <option value={5}>5</option>
+                                <option value={10}>10</option>
+                            </select>
+                        </label>
+                    </div>
+                )}
+
                 {/* Danh sách Test Cases có checkbox - chỉ hiện khi chưa chạy */}
-                {selectedSuite && suiteTestCases.length > 0 && status === 'idle' && (
+                {selectedSuite && suiteTestCases.length > 0 && (status === 'idle' || status === 'done' || status === 'error' || status === 'cancelled') && (
                     <div style={{ marginTop: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
                             <input
@@ -227,12 +343,12 @@ export default function Monitor({ navigate, ctx }) {
                     </div>
                 )}
 
-                {status === 'running' && (
+                {(status === 'running' || status === 'paused') && (
                     <div style={{ marginTop: 16 }}>
                         <div className="flex justify-between text-sm text-muted mb-4" style={{ marginBottom: 6 }}>
-                            <span>Tiến độ: {progress.done}/{progress.total} test case</span><span>{pct}%</span>
+                            <span>Tiến độ: {progress.done}/{progress.total} test case {status === 'paused' ? '(Đang tạm dừng)' : ''}</span><span>{pct}%</span>
                         </div>
-                        <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+                        <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%`, background: status === 'paused' ? '#f59e0b' : undefined }} /></div>
                     </div>
                 )}
             </div>
@@ -247,7 +363,7 @@ export default function Monitor({ navigate, ctx }) {
                 </div>
             )}
 
-            {status === 'done' && runId && (
+            {(status === 'done' || status === 'cancelled') && runId && (
                 <div className="flex gap-2 mb-4">
                     <a className="btn btn-outline" href={apiUrl(`/api/reports/${runId}/html`)} target="_blank">📄 Xuất báo cáo HTML</a>
                     <a className="btn btn-ghost" href={apiUrl(`/api/reports/${runId}/pdf`)} target="_blank">📋 Xuất PDF</a>

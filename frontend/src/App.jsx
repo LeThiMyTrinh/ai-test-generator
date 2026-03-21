@@ -11,6 +11,8 @@ import Monitor from './pages/Monitor'
 import History from './pages/History'
 import AIGenerator from './pages/AIGenerator'
 import UICheckerV2 from './pages/UICheckerV2'
+import UICheckerV3 from './pages/UICheckerV3'
+import RecordReplay from './pages/RecordReplay'
 import './index.css'
 
 function AppContent() {
@@ -37,7 +39,9 @@ function AppContent() {
       case 'monitor': return <Monitor navigate={navigate} ctx={ctx} />
       case 'history': return <History navigate={navigate} ctx={ctx} />
       case 'ai-generator': return <AIGenerator navigate={navigate} ctx={ctx} />
-      case 'ui-checker': return <UICheckerV2 navigate={navigate} ctx={ctx} />
+      case 'ui-checker': return <UICheckerV3 navigate={navigate} ctx={ctx} />
+      case 'ui-checker-v2': return <UICheckerV2 navigate={navigate} ctx={ctx} />
+      case 'recorder': return <RecordReplay navigate={navigate} ctx={ctx} />
       default: return <Dashboard navigate={navigate} />
     }
   }
@@ -46,7 +50,9 @@ function AppContent() {
     dashboard: 'Dashboard', projects: 'Quản lý Dự án', suites: 'Quản lý Test Suite',
     editor: 'Tạo / Chỉnh sửa Test Case', monitor: 'Theo dõi Thực thi',
     history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case bằng AI',
-    'ui-checker': '🔍 Kiểm tra UI'
+    'ui-checker': '🔍 Kiểm tra UI V3',
+    'ui-checker-v2': '🔍 Kiểm tra UI V2',
+    recorder: '🎬 Record & Replay'
   }
 
   return (
