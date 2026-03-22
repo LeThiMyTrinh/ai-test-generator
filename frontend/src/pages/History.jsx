@@ -217,10 +217,16 @@ export default function History({ navigate, ctx }) {
     // ========= Visual Regression =========
     const saveBaseline = async (runId, e) => {
         e.stopPropagation()
+        const run = runs.find(r => r.id === runId)
+        if (run?.baseline_saved_at) {
+            if (!window.confirm(`Run này đã lưu baseline lúc ${new Date(run.baseline_saved_at).toLocaleString('vi-VN')}.\nBạn có muốn cập nhật lại baseline không?`)) return
+        }
         setVrLoading(p => ({ ...p, [runId]: true }))
         try {
-            await api.post(`/api/runs/${runId}/save-baseline`)
+            const res = await api.post(`/api/runs/${runId}/save-baseline`)
             toast.success('Đã lưu baseline thành công!')
+            // Update run in state to reflect baseline_saved_at
+            setRuns(prev => prev.map(r => r.id === runId ? { ...r, baseline_saved_at: new Date().toISOString(), baseline_count: res.data.saved } : r))
         } catch (err) {
             toast.error(err.response?.data?.error || 'Lỗi khi lưu baseline')
         }
@@ -264,23 +270,30 @@ export default function History({ navigate, ctx }) {
 
             {/* Visual Regression Diff Overlay */}
             {vrDiffView && (
-                <div className="lightbox" onClick={() => setVrDiffView(null)} style={{ background: 'rgba(0,0,0,0.85)' }}>
+                <div className="lightbox" onClick={() => setVrDiffView(null)} style={{ background: 'rgba(0,0,0,0.9)' }}>
                     <button className="lightbox-close" onClick={() => setVrDiffView(null)}>✕</button>
-                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', maxWidth: '95vw', overflowX: 'auto', padding: 20 }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>BASELINE</div>
-                            <img src={apiUrl(`/${vrDiffView.baseline_path}`)} alt="baseline" style={{ maxHeight: '70vh', borderRadius: 8, border: '2px solid #3b82f6' }} />
+                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '95vw', maxHeight: '85vh', padding: 20, justifyContent: 'center' }}>
+                        <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
+                            <div style={{ color: '#60a5fa', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>BASELINE</div>
+                            <img src={apiUrl(`/${vrDiffView.baseline_path}`)} alt="baseline"
+                                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 8, border: '2px solid #3b82f6', objectFit: 'contain' }}
+                                onError={e => { e.target.style.display = 'none'; e.target.parentElement.insertAdjacentHTML('beforeend', '<div style="color:#94a3b8;padding:20px;font-size:13px">Không tìm thấy ảnh baseline</div>') }}
+                            />
                         </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>HIỆN TẠI</div>
-                            <img src={apiUrl(`/${vrDiffView.current_path}`)} alt="current" style={{ maxHeight: '70vh', borderRadius: 8, border: '2px solid #f59e0b' }} />
+                        <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
+                            <div style={{ color: '#fbbf24', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>HIỆN TẠI</div>
+                            <img src={apiUrl(`/${vrDiffView.current_path}`)} alt="current"
+                                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 8, border: '2px solid #f59e0b', objectFit: 'contain' }} />
                         </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>DIFF ({(vrDiffView.diff_percent || 0).toFixed(2)}%)</div>
-                            <img src={apiUrl(`/${vrDiffView.diff_path}`)} alt="diff" style={{ maxHeight: '70vh', borderRadius: 8, border: '2px solid #ef4444' }} />
+                        <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
+                            <div style={{ color: '#f87171', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>DIFF ({(vrDiffView.diff_percent || 0).toFixed(2)}%)</div>
+                            <img src={apiUrl(`/${vrDiffView.diff_path}`)} alt="diff"
+                                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 8, border: '2px solid #ef4444', objectFit: 'contain' }}
+                                onError={e => { e.target.style.display = 'none'; e.target.parentElement.insertAdjacentHTML('beforeend', '<div style="color:#94a3b8;padding:20px;font-size:13px">Không tìm thấy ảnh diff</div>') }}
+                            />
                         </div>
                     </div>
-                    <div style={{ textAlign: 'center', marginTop: 12 }}>
+                    <div style={{ textAlign: 'center', marginTop: 8 }}>
                         <span style={{ color: '#e2e8f0', fontSize: 13 }}>{vrDiffView.test_case_title} — Step #{vrDiffView.step_id}</span>
                     </div>
                 </div>
@@ -361,6 +374,12 @@ export default function History({ navigate, ctx }) {
                                             🔄 Re-run của {run.parent_run_id}
                                         </span>
                                     )}
+                                    {run.baseline_saved_at && (
+                                        <span title={`Baseline lưu lúc ${new Date(run.baseline_saved_at).toLocaleString('vi-VN')} (${run.baseline_count || 0} ảnh)`}
+                                            style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                            📐 Baseline
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="text-sm text-muted">{run.suite_id} &nbsp;|&nbsp; {new Date(run.started_at).toLocaleString('vi-VN')}</div>
                             </div>
@@ -374,6 +393,8 @@ export default function History({ navigate, ctx }) {
                                 <div className="flex gap-2" onClick={e => e.stopPropagation()} style={{ flexWrap: 'wrap' }}>
                                     <a className="btn btn-outline btn-sm" href={apiUrl(`/api/reports/${run.id}/html`)} target="_blank"><FileDown size={13} /> HTML</a>
                                     <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${run.id}/pdf`)} target="_blank">PDF</a>
+                                    <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${run.id}/json`)} download style={{ fontSize: 11 }}>JSON</a>
+                                    <a className="btn btn-ghost btn-sm" href={apiUrl(`/api/reports/${run.id}/junit`)} download style={{ fontSize: 11 }}>JUnit XML</a>
                                     {failedCount > 0 && (
                                         <a className="btn btn-sm" href={apiUrl(`/api/reports/${run.id}/failed/html`)} target="_blank"
                                             style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -395,10 +416,14 @@ export default function History({ navigate, ctx }) {
                                         className="btn btn-sm"
                                         onClick={(e) => saveBaseline(run.id, e)}
                                         disabled={vrLoading[run.id]}
-                                        style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 4 }}
+                                        title={run.baseline_saved_at ? `Đã lưu lúc ${new Date(run.baseline_saved_at).toLocaleString('vi-VN')} — Click để cập nhật` : 'Lưu ảnh chụp làm baseline'}
+                                        style={run.baseline_saved_at
+                                            ? { background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }
+                                            : { background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 4 }
+                                        }
                                     >
                                         <Camera size={13} />
-                                        {vrLoading[run.id] ? 'Đang xử lý...' : '📐 Lưu Baseline'}
+                                        {vrLoading[run.id] ? 'Đang xử lý...' : run.baseline_saved_at ? '✅ Đã lưu Baseline' : '📐 Lưu Baseline'}
                                     </button>
                                     <button
                                         className="btn btn-sm"

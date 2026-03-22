@@ -15,6 +15,7 @@ const nlparserRouter = require('./api/nlparser');
 const aiRouter = require('./api/ai');
 const dataDrivenRouter = require('./api/datadriven');
 const recorderRouter = require('./api/recorder');
+const analyticsRouter = require('./api/analytics');
 const { requireAuth } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -43,6 +44,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/evidence', express.static(path.join(__dirname, '../../evidence')));
 // Serve reports
 app.use('/reports', express.static(path.join(__dirname, '../../reports')));
+// Serve baseline images for visual regression
+app.use('/baselines', express.static(path.join(__dirname, '../data/baselines')));
 // Serve frontend build (in production)
 const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
 if (fs.existsSync(FRONTEND_DIST)) {
@@ -52,6 +55,7 @@ if (fs.existsSync(FRONTEND_DIST)) {
 // Inject socket.io into routers
 runsRouter.setIO(io);
 dataDrivenRouter.setIO(io);
+aiRouter.setIO(io);
 
 // Auth routes (public — no token required)
 app.use('/api/auth', authRouter);
@@ -66,6 +70,7 @@ app.use('/api/nl-parser', requireAuth, nlparserRouter);
 app.use('/api/ai', requireAuth, aiRouter);
 app.use('/api/data-sets', requireAuth, dataDrivenRouter);
 app.use('/api/recorder', requireAuth, recorderRouter);
+app.use('/api/analytics', requireAuth, analyticsRouter);
 
 // Socket.IO connection
 io.on('connection', (socket) => {

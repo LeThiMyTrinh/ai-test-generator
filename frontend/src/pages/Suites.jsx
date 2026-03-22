@@ -96,7 +96,7 @@ export default function Suites({ navigate, ctx = {} }) {
                         <tr>
                             <th>Tên Suite</th>
                             {!selectedProject && <th>Dự án</th>}
-                            <th>Số TC</th>
+                            <th>Số Test Case</th>
                             <th>Mô tả</th>
                             <th>Ngày tạo</th>
                             <th>Thao tác</th>

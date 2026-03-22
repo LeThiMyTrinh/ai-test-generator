@@ -1,4 +1,4 @@
-import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch, Video } from 'lucide-react'
+import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch, Video, BarChart3, Settings } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
@@ -6,11 +6,13 @@ const NAV = [
     { id: 'projects', label: 'Quản lý Dự án', Icon: FolderOpen },
     { id: 'suites', label: 'Test Suites', Icon: FlaskConical },
     { id: 'editor', label: 'Tạo Test Case', Icon: ClipboardList },
-    { id: 'ai-generator', label: 'Tạo TC bằng AI', Icon: Sparkles },
+    { id: 'ai-generator', label: 'Tạo Test Case bằng AI', Icon: Sparkles },
     { id: 'ui-checker', label: 'Kiểm tra UI', Icon: ScanSearch },
     { id: 'monitor', label: 'Live Monitor', Icon: Activity },
     { id: 'history', label: 'Lịch sử chạy', Icon: History },
     { id: 'recorder', label: 'Record & Replay', Icon: Video },
+    { id: 'analytics', label: 'Smart Analytics', Icon: BarChart3 },
+    { id: 'settings', label: 'Cài đặt', Icon: Settings },
 ]
 
 export default function Layout({ children, page, navigate, title }) {

@@ -12,6 +12,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8386',
       '/evidence': 'http://localhost:8386',
+      '/baselines': 'http://localhost:8386',
       '/reports': { target: 'http://localhost:8386', changeOrigin: true },
       '/socket.io': { target: 'http://localhost:8386', ws: true }
     }

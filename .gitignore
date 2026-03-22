@@ -36,6 +36,14 @@ npm-debug.log*
 evidence/
 uploads/
 reports/
+screenshots/
+
+# Runtime data
+data/
+backend/data/
+
+# Test artifacts
+TC-*/
 
 # Temp files
 tmp/

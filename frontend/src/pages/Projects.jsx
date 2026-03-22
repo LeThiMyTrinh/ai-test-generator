@@ -57,14 +57,14 @@ export default function Projects({ navigate }) {
 
             <div className="card table-wrap">
                 <table>
-                    <thead><tr><th>Tên Dự án</th><th>Số Suite</th><th>Tổng TC</th><th>Mô tả</th><th>Lần chạy cuối</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
+                    <thead><tr><th>Tên Dự án</th><th>Số Suite</th><th>Tổng Test Case</th><th>Mô tả</th><th>Lần chạy cuối</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
                     <tbody>
                         {filtered.length === 0 && <tr><td colSpan={7}><div className="empty-state"><p>{search ? 'Không tìm thấy dự án nào.' : 'Chưa có dự án nào. Hãy tạo mới!'}</p></div></td></tr>}
                         {filtered.map(p => (
                             <tr key={p.id}>
                                 <td><strong>{p.name}</strong><br /><span className="text-muted text-sm">{p.id}</span></td>
                                 <td><span className="badge badge-running">{p.suite_count || 0} suites</span></td>
-                                <td>{p.tc_count || 0} TC</td>
+                                <td>{p.tc_count || 0} test case</td>
                                 <td className="text-muted">{p.description || '—'}</td>
                                 <td className="text-sm">
                                     {p.last_run ? (

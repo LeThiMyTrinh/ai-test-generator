@@ -23,6 +23,8 @@ export default function Monitor({ navigate, ctx }) {
     const [continueOnFailure, setContinueOnFailure] = useState(false)
     const [retryCount, setRetryCount] = useState(0)
     const [concurrency, setConcurrency] = useState(1)
+    const [selfHealing, setSelfHealing] = useState(true)
+    const [smartPriority, setSmartPriority] = useState(false)
 
     // Refs for Socket.IO and batched updates
     const socketRef = useRef(null)
@@ -138,6 +140,8 @@ export default function Monitor({ navigate, ctx }) {
                 continueOnFailure,
                 retryCount,
                 concurrency,
+                selfHealing,
+                smartPriority,
             })
             setRunId(r.data.run_id)
             toast.success('Đã bắt đầu chạy test!')
@@ -238,7 +242,7 @@ export default function Monitor({ navigate, ctx }) {
                         <label className="form-label">Chọn Test Suite để chạy</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} disabled={status === 'running'}>
                             <option value="">-- Chọn Suite --</option>
-                            {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} TC)</option>)}
+                            {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} test case)</option>)}
                         </select>
                     </div>
                     <div style={{ marginTop: 22, display: 'flex', gap: 6 }}>
@@ -295,6 +299,14 @@ export default function Monitor({ navigate, ctx }) {
                                 <option value={5}>5</option>
                                 <option value={10}>10</option>
                             </select>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
+                            <input type="checkbox" checked={selfHealing} onChange={e => setSelfHealing(e.target.checked)} style={{ width: 15, height: 15 }} />
+                            Self-Healing
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
+                            <input type="checkbox" checked={smartPriority} onChange={e => setSmartPriority(e.target.checked)} style={{ width: 15, height: 15 }} />
+                            Smart Priority
                         </label>
                     </div>
                 )}

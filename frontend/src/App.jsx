@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -13,12 +13,20 @@ import AIGenerator from './pages/AIGenerator'
 import UICheckerV2 from './pages/UICheckerV2'
 import UICheckerV3 from './pages/UICheckerV3'
 import RecordReplay from './pages/RecordReplay'
+import Analytics from './pages/Analytics'
+import SettingsPage from './pages/SettingsPage'
 import './index.css'
 
 function AppContent() {
   const { user, loading } = useAuth()
   const [page, setPage] = useState('dashboard')
   const [ctx, setCtx] = useState({})
+
+  // Apply saved theme on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('autotest-theme')
+    if (saved) document.documentElement.setAttribute('data-theme', saved)
+  }, [])
 
   if (loading) {
     return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#64748b' }}>Đang tải...</div>
@@ -42,6 +50,8 @@ function AppContent() {
       case 'ui-checker': return <UICheckerV3 navigate={navigate} ctx={ctx} />
       case 'ui-checker-v2': return <UICheckerV2 navigate={navigate} ctx={ctx} />
       case 'recorder': return <RecordReplay navigate={navigate} ctx={ctx} />
+      case 'analytics': return <Analytics navigate={navigate} ctx={ctx} />
+      case 'settings': return <SettingsPage navigate={navigate} />
       default: return <Dashboard navigate={navigate} />
     }
   }
@@ -52,7 +62,9 @@ function AppContent() {
     history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case bằng AI',
     'ui-checker': '🔍 Kiểm tra UI V3',
     'ui-checker-v2': '🔍 Kiểm tra UI V2',
-    recorder: '🎬 Record & Replay'
+    recorder: '🎬 Record & Replay',
+    analytics: 'Smart Analytics',
+    settings: 'Cài đặt'
   }
 
   return (

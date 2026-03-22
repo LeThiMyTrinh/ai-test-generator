@@ -1,8 +1,11 @@
 /**
- * NLStepParser — Chuyển đổi ngôn ngữ tự nhiên (tiếng Việt) thành test steps
- * 
- * Hỗ trợ 10 action types: navigate, click, fill, select, hover,
- * assert_text, assert_visible, assert_url, wait, screenshot
+ * NLStepParser — Chuyển đổi ngôn ngữ tự nhiên (tiếng Việt + English) thành test steps
+ *
+ * UI Actions (10): navigate, click, fill, select, hover,
+ *   assert_text, assert_visible, assert_url, wait, screenshot
+ * Extended UI (6): double_click, right_click, keyboard, scroll_to, drag_drop, upload_file
+ * API Actions (6): api_request, assert_status, assert_body,
+ *   assert_header, assert_response_time, store_variable
  */
 
 class NLStepParser {
@@ -159,6 +162,162 @@ class NLStepParser {
                 regex: /^(?:chụp\s+(?:ảnh|hình|màn\s*hình|screenshot)|screenshot|capture)/i,
                 action: 'screenshot',
                 extract: (m) => ({ description: m[0] })
+            },
+
+            // === API ACTIONS ===
+            // Pattern: Gọi API GET/POST/PUT/DELETE URL với body {...}
+            {
+                regex: /^(?:gọi|call|send|gửi)\s+(?:API\s+)?(GET|POST|PUT|DELETE|PATCH)\s+(.+?)\s+(?:với|with)\s+(?:body|dữ\s*liệu)\s+(.+)/i,
+                action: 'api_request',
+                extract: (m) => ({
+                    selector: m[1].toUpperCase(),
+                    value: this.cleanUrl(m[2].trim()),
+                    expected: m[3].trim(),
+                    description: m[0]
+                })
+            },
+            // Pattern: Gọi API GET/POST/PUT/DELETE URL
+            {
+                regex: /^(?:gọi|call|send|gửi)\s+(?:API\s+)?(GET|POST|PUT|DELETE|PATCH)\s+(.+)/i,
+                action: 'api_request',
+                extract: (m) => ({
+                    selector: m[1].toUpperCase(),
+                    value: this.cleanUrl(m[2].trim()),
+                    description: m[0]
+                })
+            },
+            // Pattern: API GET/POST URL
+            {
+                regex: /^API\s+(GET|POST|PUT|DELETE|PATCH)\s+(.+)/i,
+                action: 'api_request',
+                extract: (m) => ({
+                    selector: m[1].toUpperCase(),
+                    value: this.cleanUrl(m[2].trim()),
+                    description: m[0]
+                })
+            },
+            // Pattern: GET/POST URL (bare HTTP method)
+            {
+                regex: /^(GET|POST|PUT|DELETE|PATCH)\s+(https?:\/\/.+)/i,
+                action: 'api_request',
+                extract: (m) => ({
+                    selector: m[1].toUpperCase(),
+                    value: m[2].trim(),
+                    description: m[0]
+                })
+            },
+
+            // Pattern: Kiểm tra status/mã 200
+            {
+                regex: /^(?:kiểm\s*tra|check|verify|assert|expect)\s+(?:status|mã\s*(?:trạng\s*thái)?|HTTP|response\s*code)\s+(?:(?:là|=|bằng|equals?|is|to\s+be)\s*)?(\d{3})/i,
+                action: 'assert_status',
+                extract: (m) => ({ expected: m[1], description: m[0] })
+            },
+            // Pattern: Status 200 / status code 201
+            {
+                regex: /^status\s*(?:code)?\s*(?:is|=|là)?\s*(\d{3})/i,
+                action: 'assert_status',
+                extract: (m) => ({ expected: m[1], description: m[0] })
+            },
+
+            // Pattern: Kiểm tra body/response $.path = value
+            {
+                regex: /^(?:kiểm\s*tra|check|verify|assert|expect)\s+(?:body|response|kết\s*quả)\s+(\$[\.\w\[\]]+)\s+(?:là|=|bằng|equals?|chứa|contains?|not_empty|không\s*rỗng)?\s*[""'']?(.+?)?[""'']?\s*$/i,
+                action: 'assert_body',
+                extract: (m) => ({
+                    selector: m[1],
+                    expected: m[2]?.trim() || 'not_empty',
+                    description: m[0]
+                })
+            },
+            // Pattern: Kiểm tra $.path không rỗng
+            {
+                regex: /^(?:kiểm\s*tra|check|verify)\s+(\$[\.\w\[\]]+)\s+(?:không\s*rỗng|not\s*empty|exists?|tồn\s*tại)/i,
+                action: 'assert_body',
+                extract: (m) => ({ selector: m[1], expected: 'not_empty', description: m[0] })
+            },
+
+            // Pattern: Kiểm tra header Content-Type chứa application/json
+            {
+                regex: /^(?:kiểm\s*tra|check|verify|assert)\s+header\s+[""'']?(.+?)[""'']?\s+(?:là|=|chứa|contains?)?\s*[""'']?(.+?)?[""'']?\s*$/i,
+                action: 'assert_header',
+                extract: (m) => ({
+                    selector: m[1].trim().toLowerCase(),
+                    expected: m[2]?.trim() || '',
+                    description: m[0]
+                })
+            },
+
+            // Pattern: Kiểm tra response time < 2000ms
+            {
+                regex: /^(?:kiểm\s*tra|check|verify|assert|expect)\s+(?:response\s*time|thời\s*gian\s*(?:phản\s*hồi)?)\s*[<≤]\s*(\d+)\s*(?:ms)?/i,
+                action: 'assert_response_time',
+                extract: (m) => ({ expected: m[1], description: m[0] })
+            },
+            // Pattern: Response time < 5000
+            {
+                regex: /^response\s*time\s*[<≤]\s*(\d+)\s*(?:ms)?/i,
+                action: 'assert_response_time',
+                extract: (m) => ({ expected: m[1], description: m[0] })
+            },
+
+            // Pattern: Lưu $.data.token vào biến token_var
+            {
+                regex: /^(?:lưu|store|save|gán|extract)\s+(\$[\.\w\[\]]+)\s+(?:vào|thành|as|to|into)\s+(?:biến\s*)?(\w+)/i,
+                action: 'store_variable',
+                extract: (m) => ({ selector: m[1], value: m[2], description: m[0] })
+            },
+            // Pattern: Set variable token = $.data.token
+            {
+                regex: /^(?:set|đặt)\s+(?:variable|biến)\s+(\w+)\s*=\s*(\$[\.\w\[\]]+)/i,
+                action: 'store_variable',
+                extract: (m) => ({ selector: m[2], value: m[1], description: m[0] })
+            },
+
+            // === EXTENDED UI ACTIONS ===
+            // Pattern: Nhấn đúp/double click
+            {
+                regex: /^(?:nhấn\s*đúp|double\s*click|nháy\s*đúp)\s+(?:vào\s+)?(.+)/i,
+                action: 'double_click',
+                extract: (m) => ({ selector: this.resolveSelector(m[1].trim()), description: m[0] })
+            },
+            // Pattern: Chuột phải / right click
+            {
+                regex: /^(?:chuột\s*phải|right\s*click|nhấn\s*phải)\s+(?:vào\s+)?(.+)/i,
+                action: 'right_click',
+                extract: (m) => ({ selector: this.resolveSelector(m[1].trim()), description: m[0] })
+            },
+            // Pattern: Nhấn phím Ctrl+A / Enter / Tab
+            {
+                regex: /^(?:nhấn\s*phím|press|bấm\s*phím|keyboard)\s+(.+)/i,
+                action: 'keyboard',
+                extract: (m) => ({ value: m[1].trim(), description: m[0] })
+            },
+            // Pattern: Cuộn đến / scroll to
+            {
+                regex: /^(?:cuộn\s*(?:đến|tới)|scroll\s*(?:to|đến))\s+(.+)/i,
+                action: 'scroll_to',
+                extract: (m) => ({ selector: this.resolveSelector(m[1].trim()), description: m[0] })
+            },
+            // Pattern: Kéo thả / drag drop
+            {
+                regex: /^(?:kéo\s*thả|kéo|drag)\s+(.+?)\s+(?:thả\s+(?:vào|tới)|(?:and\s+)?drop\s+(?:to|into)?)\s+(.+)/i,
+                action: 'drag_drop',
+                extract: (m) => ({
+                    selector: this.resolveSelector(m[1].trim()),
+                    value: this.resolveSelector(m[2].trim()),
+                    description: m[0]
+                })
+            },
+            // Pattern: Upload file
+            {
+                regex: /^(?:upload|tải\s*lên|đăng\s*tải)\s+(?:file|tệp|tập\s*tin)?\s*(.+?)(?:\s+(?:vào|tại|to)\s+(.+))?$/i,
+                action: 'upload_file',
+                extract: (m) => ({
+                    value: m[1].trim().replace(/^[""'']+|[""'']+$/g, ''),
+                    selector: m[2] ? this.resolveSelector(m[2].trim()) : 'input[type="file"]',
+                    description: m[0]
+                })
             }
         ];
     }
@@ -317,6 +476,46 @@ class NLStepParser {
 
         // Default: try button first, then any clickable element
         return `button:has-text("${s}"), a:has-text("${s}"), [role="button"]:has-text("${s}"), text="${s}"`;
+    }
+
+    /**
+     * Suggest completions based on partial input
+     * @param {string} partial - Partial text input
+     * @returns {string[]} Suggested completions
+     */
+    suggest(partial) {
+        if (!partial || partial.length < 2) return [];
+        const lower = partial.toLowerCase();
+        const suggestions = [
+            { prefix: 'mở', template: 'Mở trang https://' },
+            { prefix: 'nhập', template: 'Nhập "giá trị" vào ô Tên trường' },
+            { prefix: 'nhấn', template: 'Nhấn nút "Tên nút"' },
+            { prefix: 'click', template: 'Click vào nút "Tên nút"' },
+            { prefix: 'kiểm tra text', template: 'Kiểm tra text "nội dung" hiển thị' },
+            { prefix: 'kiểm tra url', template: 'Kiểm tra URL chứa /path' },
+            { prefix: 'kiểm tra hiển thị', template: 'Kiểm tra hiển thị phần tử #selector' },
+            { prefix: 'chờ', template: 'Chờ 2 giây' },
+            { prefix: 'chụp', template: 'Chụp ảnh màn hình' },
+            { prefix: 'chọn', template: 'Chọn "giá trị" trong dropdown Tên' },
+            { prefix: 'di chuột', template: 'Di chuột vào phần tử #selector' },
+            { prefix: 'gọi api', template: 'Gọi API POST https://api.example.com/endpoint với body {"key":"value"}' },
+            { prefix: 'api', template: 'API GET https://api.example.com/endpoint' },
+            { prefix: 'kiểm tra status', template: 'Kiểm tra status 200' },
+            { prefix: 'kiểm tra body', template: 'Kiểm tra body $.data.field = "giá trị"' },
+            { prefix: 'kiểm tra header', template: 'Kiểm tra header content-type chứa application/json' },
+            { prefix: 'kiểm tra response', template: 'Kiểm tra response time < 5000ms' },
+            { prefix: 'lưu', template: 'Lưu $.data.token vào biến token' },
+            { prefix: 'nhấn đúp', template: 'Nhấn đúp vào phần tử #selector' },
+            { prefix: 'chuột phải', template: 'Chuột phải vào phần tử #selector' },
+            { prefix: 'nhấn phím', template: 'Nhấn phím Enter' },
+            { prefix: 'cuộn', template: 'Cuộn đến phần tử #selector' },
+            { prefix: 'kéo', template: 'Kéo #source thả vào #target' },
+            { prefix: 'upload', template: 'Upload file "/path/to/file"' },
+        ];
+        return suggestions
+            .filter(s => s.prefix.startsWith(lower) || lower.startsWith(s.prefix))
+            .map(s => s.template)
+            .slice(0, 5);
     }
 
     /**

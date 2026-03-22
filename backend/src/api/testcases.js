@@ -167,4 +167,45 @@ router.post('/import/excel', upload.single('file'), async (req, res) => {
     }
 });
 
+// POST /import/postman — Import from Postman Collection v2.1 JSON
+router.post('/import/postman', upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const { suite_id } = req.body;
+    if (!suite_id) { fs.unlinkSync(req.file.path); return res.status(400).json({ error: 'suite_id required' }); }
+    try {
+        const raw = fs.readFileSync(req.file.path, 'utf-8');
+        const collection = JSON.parse(raw);
+        const PostmanImporter = require('../parser/PostmanImporter');
+        const importer = new PostmanImporter();
+        const { testCases, warnings } = importer.parse(collection, suite_id);
+
+        if (testCases.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(422).json({ error: 'No requests found in collection', warnings });
+        }
+
+        const ids = [];
+        for (const tc of testCases) {
+            const id = 'TC-' + uuidv4().slice(0, 8).toUpperCase();
+            await db.testCases.insert({
+                id, suite_id,
+                title: tc.title,
+                description: tc.description || '',
+                url: tc.url,
+                browser: tc.browser || 'chromium',
+                device: null,
+                steps_json: JSON.stringify(tc.steps),
+                created_by: req.user.email,
+                created_at: new Date().toISOString()
+            });
+            ids.push(id);
+        }
+        fs.unlinkSync(req.file.path);
+        res.json({ imported: ids.length, ids, warnings });
+    } catch (err) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        res.status(422).json({ error: err.message });
+    }
+});
+
 module.exports = router;

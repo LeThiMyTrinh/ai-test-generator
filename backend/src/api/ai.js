@@ -4,6 +4,10 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const AITestGenerator = require('../ai/AITestGenerator');
+const AIRequestQueue = require('../ai/AIRequestQueue');
+const AIResponseCache = require('../ai/AIResponseCache');
+const MultiProviderAI = require('../ai/MultiProviderAI');
+const NLStepParser = require('../parser/NLStepParser');
 const URLCrawler = require('../ai/URLCrawler');
 const UICheckerModule = require('../ai/UIChecker');
 const UIChecker = new UICheckerModule();
@@ -103,30 +107,162 @@ const upload = multer({
     }
 });
 
-const generator = new AITestGenerator();
+// Phase 1: AI optimization — Queue + Cache + MultiProvider + Hybrid NL
+const aiQueue = new AIRequestQueue({ maxRPM: 14 });
+const aiCache = new AIResponseCache({ maxEntries: 100, ttlMs: 3600000 }); // 1h TTL
+const multiProvider = new MultiProviderAI();
+const nlParser = new NLStepParser();
+
+const generator = new AITestGenerator({
+    queue: aiQueue,
+    cache: aiCache,
+    multiProvider: multiProvider
+});
 const crawler = new URLCrawler();
+
+// Socket.IO injection (gọi từ server.js)
+let io_ref = null;
+router.setIO = (io) => {
+    io_ref = io;
+    aiQueue.io = io;
+};
 
 // GET /api/ai/status — check if API key is configured
 router.get('/status', (req, res) => {
     res.json({
         configured: generator.isConfigured(),
         model: generator.model || 'N/A',
+        nlParserAvailable: true,
         message: generator.isConfigured()
-            ? 'Gemini API đã sẵn sàng'
-            : 'Chưa cấu hình GEMINI_API_KEY. Thêm biến môi trường GEMINI_API_KEY và restart server.'
+            ? 'AI đã sẵn sàng'
+            : 'Chưa có AI provider. Dùng NL Parser (miễn phí) hoặc nhập API key để mở khóa AI nâng cao.',
+        providers: multiProvider.status()
     });
 });
 
-// POST /api/ai/generate — generate test case from images + context
-router.post('/generate', upload.array('images', 10), async (req, res) => {
+// POST /api/ai/save-key — save API key at runtime (no restart needed)
+router.post('/save-key', (req, res) => {
     try {
-        if (!generator.isConfigured()) {
-            return res.status(400).json({
-                error: 'Chưa cấu hình GEMINI_API_KEY. Thêm vào biến môi trường và restart server.\nLấy key miễn phí tại: https://aistudio.google.com'
-            });
+        const { provider, key } = req.body;
+        if (!provider || !key) return res.status(400).json({ error: 'Thiếu provider hoặc key' });
+        if (!['gemini', 'groq', 'ollama'].includes(provider)) {
+            return res.status(400).json({ error: 'Provider không hợp lệ. Chọn: gemini, groq, ollama' });
         }
 
+        // Reload provider in memory
+        multiProvider.reloadProvider(provider, key.trim());
+
+        // Also persist to .env file
+        const envPath = path.join(__dirname, '../../.env');
+        let envContent = '';
+        try { envContent = fs.readFileSync(envPath, 'utf8'); } catch { }
+
+        const envKey = provider === 'gemini' ? 'GEMINI_API_KEY'
+            : provider === 'groq' ? 'GROQ_API_KEY' : 'OLLAMA_MODEL';
+
+        const regex = new RegExp(`^${envKey}=.*$`, 'm');
+        if (regex.test(envContent)) {
+            envContent = envContent.replace(regex, `${envKey}=${key.trim()}`);
+        } else {
+            envContent += `\n${envKey}=${key.trim()}`;
+        }
+        fs.writeFileSync(envPath, envContent.trim() + '\n');
+
+        console.log(`[AI] Saved ${envKey} to .env and reloaded provider`);
+        res.json({ success: true, providers: multiProvider.status() });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/ai/remove-key — remove API key
+router.post('/remove-key', (req, res) => {
+    try {
+        const { provider } = req.body;
+        if (!provider) return res.status(400).json({ error: 'Thiếu provider' });
+
+        multiProvider.removeProvider(provider);
+
+        // Remove from .env file
+        const envPath = path.join(__dirname, '../../.env');
+        try {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            const envKey = provider === 'gemini' ? 'GEMINI_API_KEY'
+                : provider === 'groq' ? 'GROQ_API_KEY' : 'OLLAMA_MODEL';
+            envContent = envContent.replace(new RegExp(`^${envKey}=.*\\n?`, 'm'), '');
+            fs.writeFileSync(envPath, envContent.trim() + '\n');
+        } catch { }
+
+        res.json({ success: true, providers: multiProvider.status() });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/ai/queue-status — queue, cache, provider status
+router.get('/queue-status', (req, res) => {
+    res.json({
+        queue: aiQueue.status(),
+        cache: aiCache.stats(),
+        providers: multiProvider.status()
+    });
+});
+
+// Conditional multer: only parse multipart requests, skip for JSON
+const conditionalUpload = (req, res, next) => {
+    const ct = req.headers['content-type'] || '';
+    if (ct.startsWith('multipart/form-data')) {
+        return upload.array('images', 10)(req, res, next);
+    }
+    next();
+};
+
+// POST /api/ai/generate — generate test case from images + context
+router.post('/generate', conditionalUpload, async (req, res) => {
+    try {
         const { url, description } = req.body;
+        const hasImages = req.files && req.files.length > 0;
+        const hasUrl = !!url;
+        const aiConfigured = generator.isConfigured();
+
+        // === NL Parser mode: text-only, no AI needed ===
+        if (description && !hasImages && !hasUrl) {
+            const lines = description.trim().split('\n').filter(l => l.trim());
+            try {
+                const nlResult = nlParser.parse(description);
+                // Use NL Parser if: good results OR AI not available
+                const nlGoodEnough = nlResult.steps.length >= 1;
+                const forceNL = !aiConfigured;
+                if (nlGoodEnough || forceNL) {
+                    const warnings = nlResult.warnings || [];
+                    if (nlResult.steps.length === 0) {
+                        warnings.push('Không nhận diện được bước nào. Hãy mô tả rõ hơn các bước test.');
+                    }
+                    if (!aiConfigured && nlResult.steps.length > 0 && nlResult.warnings.length > 0) {
+                        warnings.push('Thêm API key để dùng AI nâng cao cho kết quả tốt hơn.');
+                    }
+                    console.log(`[AI] NL Parser → ${nlResult.steps.length} steps, ${warnings.length} warnings (${forceNL ? 'forced: no AI' : 'good enough'})`);
+                    return res.json({
+                        title: `Test Case: ${lines[0]?.substring(0, 60) || 'Untitled'}`,
+                        description: description.substring(0, 200),
+                        steps: nlResult.steps,
+                        warnings,
+                        source: 'nl-parser'
+                    });
+                }
+            } catch (nlErr) {
+                console.warn(`[AI] NL parser error: ${nlErr.message}`);
+                // If no AI, return the error instead of falling through
+                if (!aiConfigured) {
+                    return res.status(400).json({
+                        error: 'Không thể phân tích mô tả. Hãy mô tả rõ hơn từng bước test, mỗi bước trên 1 dòng.'
+                    });
+                }
+            }
+        }
+
+        // === AI mode: need provider configured ===
+        if (!aiConfigured) {
+            return res.status(400).json({
+                error: 'Cần API key để phân tích ảnh/URL. Nhập key tại mục "Cấu hình AI Provider" phía trên.'
+            });
+        }
 
         // Prepare images from uploads
         const images = [];
@@ -187,7 +323,7 @@ router.post('/generate', upload.array('images', 10), async (req, res) => {
 router.post('/refine', async (req, res) => {
     try {
         if (!generator.isConfigured()) {
-            return res.status(400).json({ error: 'Chưa cấu hình GEMINI_API_KEY.' });
+            return res.status(400).json({ error: 'Chưa cấu hình AI provider nào.' });
         }
 
         const { steps, feedback, url } = req.body;

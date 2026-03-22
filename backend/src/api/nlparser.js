@@ -41,4 +41,14 @@ router.get('/examples', (req, res) => {
     });
 });
 
+/**
+ * GET /api/nl-parser/suggest?q=partial
+ * Returns auto-suggestions based on partial input
+ */
+router.get('/suggest', (req, res) => {
+    const { q } = req.query;
+    const suggestions = parser.suggest(q || '');
+    res.json({ suggestions });
+});
+
 module.exports = router;

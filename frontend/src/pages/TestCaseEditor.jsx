@@ -1,15 +1,30 @@
 import { useEffect, useState, useRef } from 'react'
 import api, { apiUrl } from '../api/client'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Copy, Database } from 'lucide-react'
+import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, Settings, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Search, Copy, Database, Globe, Send } from 'lucide-react'
 
-const ACTIONS = ['navigate', 'click', 'fill', 'select', 'hover', 'assert_text', 'assert_visible', 'assert_url', 'wait', 'screenshot']
+const ACTION_GROUPS = {
+    'UI cơ bản': ['navigate', 'click', 'fill', 'select', 'hover', 'wait', 'screenshot'],
+    'UI nâng cao': ['double_click', 'right_click', 'keyboard', 'scroll_to', 'drag_drop', 'upload_file'],
+    'Kiểm tra UI': ['assert_text', 'assert_visible', 'assert_url'],
+    'API Testing': ['api_request', 'assert_status', 'assert_body', 'assert_header', 'assert_response_time', 'store_variable'],
+}
+
+const ACTIONS = Object.values(ACTION_GROUPS).flat()
 
 const ACTION_LABELS = {
     navigate: '🌐 Mở trang', click: '👆 Click', fill: '✏️ Nhập', select: '📋 Chọn',
     hover: '🖱️ Di chuột', assert_text: '🔍 Kiểm tra text', assert_visible: '👁️ Kiểm tra hiển thị',
-    assert_url: '🔗 Kiểm tra URL', wait: '⏱️ Chờ', screenshot: '📸 Chụp ảnh'
+    assert_url: '🔗 Kiểm tra URL', wait: '⏱️ Chờ', screenshot: '📸 Chụp ảnh',
+    // Extended UI
+    double_click: '👆👆 Nhấn đúp', right_click: '🖱️ Chuột phải', keyboard: '⌨️ Phím tắt',
+    scroll_to: '📜 Cuộn đến', drag_drop: '🔀 Kéo thả', upload_file: '📁 Upload file',
+    // API
+    api_request: '🌐 API Request', assert_status: '✅ Kiểm tra status', assert_body: '📋 Kiểm tra body',
+    assert_header: '📨 Kiểm tra header', assert_response_time: '⏱️ Kiểm tra thời gian', store_variable: '💾 Lưu biến',
 }
+
+const API_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
 
 const emptyStep = (i) => ({ step_id: i, action: 'click', selector: '', value: '', expected: '', description: '' })
 
@@ -34,15 +49,17 @@ const emptyTC = () => ({ title: '', description: '', url: '', browser: 'chromium
 
 const NL_PLACEHOLDER = `Viết các bước kiểm thử bằng ngôn ngữ tự nhiên, mỗi dòng = 1 bước.
 
-Ví dụ:
+Ví dụ UI Testing:
 Mở trang https://example.com/login
 Nhập "admin@test.com" vào ô Email
-Nhập "123456" vào ô Mật khẩu
 Nhấn nút "Đăng nhập"
 Kiểm tra URL chứa /dashboard
-Kiểm tra text "Xin chào" hiển thị
-Chờ 2 giây
-Chụp ảnh màn hình`
+
+Ví dụ API Testing:
+Gọi API POST https://api.example.com/login với body {"email":"admin@test.com"}
+Kiểm tra status 200
+Kiểm tra body $.data.token không rỗng
+Lưu $.data.token vào biến token`
 
 export default function TestCaseEditor({ navigate, ctx }) {
     const { suite_id, suite_name, project_id, project_name } = ctx || {}
@@ -70,8 +87,14 @@ export default function TestCaseEditor({ navigate, ctx }) {
     const [dsData, setDsData] = useState([])
     const [dsCsvFile, setDsCsvFile] = useState(null)
     const [expandedDS, setExpandedDS] = useState(null)
+    const [nlSuggestions, setNlSuggestions] = useState([])
+    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [selectedSuggIdx, setSelectedSuggIdx] = useState(0)
     const fileRef = useRef()
     const csvRef = useRef()
+    const postmanRef = useRef()
+    const nlRef = useRef()
+    const suggestTimer = useRef(null)
 
     // Load projects
     useEffect(() => { api.get('/api/projects').then(r => setProjects(r.data)) }, [])
@@ -93,6 +116,53 @@ export default function TestCaseEditor({ navigate, ctx }) {
     useEffect(() => { if (selectedSuite) loadTCs() }, [selectedSuite])
 
     const loadTCs = () => api.get(`/api/test-cases?suite_id=${selectedSuite}`).then(r => setTestCases(r.data))
+
+    // NL autocomplete suggest
+    const fetchSuggestions = (text) => {
+        if (suggestTimer.current) clearTimeout(suggestTimer.current)
+        const lines = text.split('\n')
+        const currentLine = lines[lines.length - 1]?.trim() || ''
+        if (currentLine.length < 2) { setNlSuggestions([]); setShowSuggestions(false); return }
+        suggestTimer.current = setTimeout(async () => {
+            try {
+                const r = await api.get(`/api/nl-parser/suggest?q=${encodeURIComponent(currentLine)}`)
+                if (r.data.suggestions?.length) {
+                    setNlSuggestions(r.data.suggestions)
+                    setSelectedSuggIdx(0)
+                    setShowSuggestions(true)
+                } else {
+                    setShowSuggestions(false)
+                }
+            } catch { setShowSuggestions(false) }
+        }, 200)
+    }
+
+    const applySuggestion = (suggestion) => {
+        const lines = form.nlText.split('\n')
+        lines[lines.length - 1] = suggestion
+        setForm(p => ({ ...p, nlText: lines.join('\n') }))
+        setShowSuggestions(false)
+        nlRef.current?.focus()
+    }
+
+    const handleNlKeyDown = (e) => {
+        if (!showSuggestions || nlSuggestions.length === 0) return
+        if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setSelectedSuggIdx(i => (i + 1) % nlSuggestions.length)
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setSelectedSuggIdx(i => (i - 1 + nlSuggestions.length) % nlSuggestions.length)
+        } else if (e.key === 'Tab') {
+            e.preventDefault()
+            applySuggestion(nlSuggestions[selectedSuggIdx])
+        } else if (e.key === 'Enter') {
+            // Enter = đóng gợi ý, để textarea xuống dòng bình thường
+            setShowSuggestions(false)
+        } else if (e.key === 'Escape') {
+            setShowSuggestions(false)
+        }
+    }
 
     // NL conversion
     const convertNL = async () => {
@@ -267,9 +337,31 @@ export default function TestCaseEditor({ navigate, ctx }) {
         } catch (e) { toast.error(e.response?.data?.error || 'Lỗi import') } finally { setUploading(false) }
     }
 
-    const needsSelector = ['click', 'fill', 'select', 'hover', 'assert_text', 'assert_visible']
-    const needsValue = ['fill', 'select', 'navigate', 'wait']
-    const needsExpected = ['assert_text', 'assert_url']
+    const handlePostmanImport = async (file) => {
+        if (!selectedSuite) return toast.error('Vui lòng chọn Suite trước khi import')
+        if (!file) return
+        const ext = file.name.split('.').pop().toLowerCase()
+        if (ext !== 'json') return toast.error('Chỉ chấp nhận file .json (Postman Collection)')
+        const fd = new FormData(); fd.append('file', file); fd.append('suite_id', selectedSuite)
+        setUploading(true)
+        try {
+            const r = await api.post('/api/test-cases/import/postman', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+            toast.success(`Đã import ${r.data.imported} API test case từ Postman`)
+            if (r.data.warnings && r.data.warnings.length > 0) {
+                r.data.warnings.forEach(w => toast(w, { icon: '⚠️', duration: 5000 }))
+            }
+            loadTCs()
+        } catch (e) { toast.error(e.response?.data?.error || 'Lỗi import Postman') } finally { setUploading(false) }
+    }
+
+    const needsSelector = ['click', 'fill', 'select', 'hover', 'assert_text', 'assert_visible',
+        'double_click', 'right_click', 'scroll_to', 'drag_drop', 'upload_file', 'assert_body', 'assert_header', 'store_variable']
+    const needsValue = ['fill', 'select', 'navigate', 'wait', 'keyboard', 'drag_drop', 'upload_file',
+        'store_variable', 'assert_status', 'assert_response_time']
+    const needsExpected = ['assert_text', 'assert_url', 'assert_body', 'assert_header']
+    const isApiAction = (a) => ['api_request', 'assert_status', 'assert_body', 'assert_header', 'assert_response_time', 'store_variable'].includes(a)
 
     const filteredTCs = testCases.filter(tc => tc.title.toLowerCase().includes(search.toLowerCase()))
 
@@ -302,14 +394,18 @@ export default function TestCaseEditor({ navigate, ctx }) {
                         <label className="form-label">Chọn Test Suite</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
                             <option value="">-- Chọn Suite --</option>
-                            {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} TC)</option>)}
+                            {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} test case)</option>)}
                         </select>
                     </div>
                     {selectedSuite && (
                         <div className="flex gap-2" style={{ marginTop: 22 }}>
-                            <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(emptyTC()); setTabMode('nl'); setShowPreview(false); setWarnings([]); setShowForm(true) }}><Plus size={15} /> Thêm TC</button>
+                            <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(emptyTC()); setTabMode('nl'); setShowPreview(false); setWarnings([]); setShowForm(true) }}><Plus size={15} /> Thêm Test Case</button>
                             <a className="btn btn-outline" href={apiUrl(`/api/test-cases/export/excel?suite_id=${selectedSuite}`)} download title="Tải test cases về dạng Excel"><Download size={15} /> Xuất Excel</a>
                             <a className="btn btn-ghost" href={apiUrl('/api/test-cases/template/download')} download title="Tải file mẫu Excel"><Download size={15} /> File mẫu</a>
+                            <button className="btn btn-outline" onClick={() => postmanRef.current?.click()} title="Import từ Postman Collection JSON" style={{ borderColor: '#f97316', color: '#f97316' }}>
+                                <Send size={15} /> Import Postman
+                            </button>
+                            <input ref={postmanRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { handlePostmanImport(e.target.files[0]); e.target.value = '' }} />
                         </div>
                     )}
                 </div>
@@ -441,13 +537,32 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                         <Sparkles size={14} />
                                         <span>Viết từng bước kiểm thử bằng tiếng Việt, mỗi dòng = 1 bước. Hệ thống sẽ tự chuyển đổi.</span>
                                     </div>
-                                    <textarea
-                                        className="nl-textarea"
-                                        rows={10}
-                                        placeholder={NL_PLACEHOLDER}
-                                        value={form.nlText}
-                                        onChange={e => setForm(p => ({ ...p, nlText: e.target.value }))}
-                                    />
+                                    <div style={{ position: 'relative' }}>
+                                        <textarea
+                                            ref={nlRef}
+                                            className="nl-textarea"
+                                            rows={10}
+                                            placeholder={NL_PLACEHOLDER}
+                                            value={form.nlText}
+                                            onChange={e => { setForm(p => ({ ...p, nlText: e.target.value })); fetchSuggestions(e.target.value) }}
+                                            onKeyDown={handleNlKeyDown}
+                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                                        />
+                                        {showSuggestions && nlSuggestions.length > 0 && (
+                                            <div className="nl-suggestions">
+                                                {nlSuggestions.map((s, i) => (
+                                                    <div key={i}
+                                                        className={`nl-suggestion-item ${i === selectedSuggIdx ? 'active' : ''}`}
+                                                        onMouseDown={() => applySuggestion(s)}
+                                                        onMouseEnter={() => setSelectedSuggIdx(i)}
+                                                    >
+                                                        <Sparkles size={12} /> {s}
+                                                    </div>
+                                                ))}
+                                                <div className="nl-suggestion-hint">Tab hoặc Enter để chọn, Esc để đóng</div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex gap-2 items-center" style={{ marginTop: 12 }}>
                                         <button className="btn btn-primary" onClick={convertNL} disabled={converting || !form.nlText.trim()}>
                                             <Sparkles size={15} /> {converting ? 'Đang chuyển đổi...' : 'Chuyển đổi ✨'}
@@ -510,11 +625,16 @@ export default function TestCaseEditor({ navigate, ctx }) {
 
                                     <div className="steps-list">
                                         {form.steps.map((step, i) => (
-                                            <div key={i} style={{ background: '#f8fafc', padding: '12px', borderRadius: 8, border: '1px solid var(--border)' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '36px 150px 1fr auto', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                                            <div key={i} style={{ background: isApiAction(step.action) ? '#eff6ff' : '#f8fafc', padding: '12px', borderRadius: 8, border: `1px solid ${isApiAction(step.action) ? '#93c5fd' : 'var(--border)'}` }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '36px 170px 1fr auto', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                                                     <div className="step-num">{i + 1}</div>
-                                                    <select className="form-control" value={step.action} onChange={e => updateStep(i, 'action', e.target.value)}>
-                                                        {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                                                    <select className="form-control" value={step.action} onChange={e => updateStep(i, 'action', e.target.value)}
+                                                        style={isApiAction(step.action) ? { borderColor: '#3b82f6', background: '#dbeafe' } : {}}>
+                                                        {Object.entries(ACTION_GROUPS).map(([group, actions]) => (
+                                                            <optgroup key={group} label={group}>
+                                                                {actions.map(a => <option key={a} value={a}>{ACTION_LABELS[a] || a}</option>)}
+                                                            </optgroup>
+                                                        ))}
                                                     </select>
                                                     <input className="form-control" placeholder="Mô tả bước" value={step.description} onChange={e => updateStep(i, 'description', e.target.value)} />
                                                     <div className="flex gap-2">
@@ -523,11 +643,63 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                                         <button className="btn btn-danger btn-sm" onClick={() => removeStep(i)}><Trash2 size={12} /></button>
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: `${needsSelector.includes(step.action) ? '1fr' : '0'} ${needsValue.includes(step.action) ? '1fr' : '0'} ${needsExpected.includes(step.action) ? '1fr' : '0'}`, gap: 8 }}>
-                                                    {needsSelector.includes(step.action) && <input className="form-control" placeholder="Selector (CSS/XPath)" value={step.selector} onChange={e => updateStep(i, 'selector', e.target.value)} />}
-                                                    {needsValue.includes(step.action) && <input className="form-control" placeholder={step.action === 'navigate' ? 'URL' : step.action === 'wait' ? 'Milliseconds' : 'Giá trị'} value={step.value} onChange={e => updateStep(i, 'value', e.target.value)} />}
-                                                    {needsExpected.includes(step.action) && <input className="form-control" placeholder={step.action === 'assert_url' ? 'URL kỳ vọng' : 'Text kỳ vọng'} value={step.expected} onChange={e => updateStep(i, 'expected', e.target.value)} />}
-                                                </div>
+
+                                                {/* API Request Builder */}
+                                                {step.action === 'api_request' && (
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, marginBottom: 8 }}>
+                                                        <select className="form-control" value={step.selector || 'GET'} onChange={e => updateStep(i, 'selector', e.target.value)}
+                                                            style={{ fontWeight: 600, color: step.selector === 'POST' ? '#16a34a' : step.selector === 'DELETE' ? '#dc2626' : step.selector === 'PUT' ? '#d97706' : '#2563eb' }}>
+                                                            {API_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                                        </select>
+                                                        <input className="form-control" placeholder="URL (VD: https://api.example.com/users)" value={step.value || ''} onChange={e => updateStep(i, 'value', e.target.value)} />
+                                                        <div style={{ gridColumn: '1 / -1' }}>
+                                                            <input className="form-control" placeholder='Headers JSON (VD: {"Authorization": "Bearer {{token}}"})'
+                                                                value={step.headers || ''} onChange={e => updateStep(i, 'headers', e.target.value)} style={{ fontSize: 12 }} />
+                                                        </div>
+                                                        {['POST', 'PUT', 'PATCH'].includes(step.selector) && (
+                                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                                <textarea className="form-control" rows={2} placeholder='Request Body JSON (VD: {"email": "{{email}}", "password": "{{password}}"})'
+                                                                    value={step.expected || ''} onChange={e => updateStep(i, 'expected', e.target.value)} style={{ fontSize: 12, fontFamily: 'monospace' }} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Standard fields for non-api_request actions */}
+                                                {step.action !== 'api_request' && (
+                                                    <div style={{ display: 'grid', gridTemplateColumns: [needsSelector.includes(step.action), needsValue.includes(step.action), needsExpected.includes(step.action)].filter(Boolean).length > 0 ? [needsSelector.includes(step.action) && '1fr', needsValue.includes(step.action) && '1fr', needsExpected.includes(step.action) && '1fr'].filter(Boolean).join(' ') : '1fr', gap: 8 }}>
+                                                        {needsSelector.includes(step.action) && <input className="form-control"
+                                                            placeholder={step.action === 'assert_body' ? 'JSONPath (VD: $.data.id)' : step.action === 'assert_header' ? 'Tên header (VD: content-type)' : step.action === 'store_variable' ? 'Nguồn (VD: $.data.token, response.status)' : 'Selector (CSS/XPath)'}
+                                                            value={step.selector} onChange={e => updateStep(i, 'selector', e.target.value)} />}
+                                                        {needsValue.includes(step.action) && <input className="form-control"
+                                                            placeholder={
+                                                                step.action === 'navigate' ? 'URL' : step.action === 'wait' ? 'Milliseconds' :
+                                                                step.action === 'keyboard' ? 'Phím (VD: Enter, Control+a, Tab)' :
+                                                                step.action === 'drag_drop' ? 'Selector đích (target)' :
+                                                                step.action === 'upload_file' ? 'Đường dẫn file' :
+                                                                step.action === 'store_variable' ? 'Tên biến (VD: token, userId)' :
+                                                                step.action === 'assert_status' ? 'Status code (VD: 200, 201, 404)' :
+                                                                step.action === 'assert_response_time' ? 'Max ms (VD: 5000)' :
+                                                                'Giá trị'
+                                                            }
+                                                            value={step.value} onChange={e => updateStep(i, 'value', e.target.value)} />}
+                                                        {needsExpected.includes(step.action) && <input className="form-control"
+                                                            placeholder={
+                                                                step.action === 'assert_url' ? 'URL kỳ vọng' :
+                                                                step.action === 'assert_body' ? 'Giá trị kỳ vọng (VD: not_empty, > 0, "abc")' :
+                                                                step.action === 'assert_header' ? 'Giá trị kỳ vọng (VD: application/json)' :
+                                                                'Text kỳ vọng'
+                                                            }
+                                                            value={step.expected} onChange={e => updateStep(i, 'expected', e.target.value)} />}
+                                                    </div>
+                                                )}
+
+                                                {/* store_variable: special layout with source selector */}
+                                                {step.action === 'store_variable' && (
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                                                        Selector = nguồn (JSONPath: $.data.token | response.status | response.body), Value = tên biến. Dùng {'{{tên_biến}}'} ở các bước sau.
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

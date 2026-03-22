@@ -40,7 +40,7 @@ router.get('/:id', async (req, res) => {
 // POST start a new run
 router.post('/', async (req, res) => {
     try {
-        const { suite_id, test_case_ids, continueOnFailure, retryCount, concurrency } = req.body;
+        const { suite_id, test_case_ids, continueOnFailure, retryCount, concurrency, selfHealing, smartPriority } = req.body;
         if (!suite_id) return res.status(400).json({ error: 'suite_id required' });
 
         const suite = await db.suites.findOne({ id: suite_id });
@@ -70,6 +70,8 @@ router.post('/', async (req, res) => {
                     continueOnFailure: !!continueOnFailure,
                     retryCount: parseInt(retryCount) || 0,
                     concurrency: parseInt(concurrency) || 1,
+                    selfHealing: selfHealing !== false,
+                    smartPriority: !!smartPriority,
                 });
                 const { summary, results } = await runner.runSuite(testCases, runId);
                 for (const r of results) {
@@ -291,6 +293,13 @@ router.post('/:id/save-baseline', async (req, res) => {
                 }
             }
         }
+        // Mark this run as baseline source
+        if (saved > 0) {
+            await db.runs.update({ id: req.params.id }, { $set: {
+                baseline_saved_at: new Date().toISOString(),
+                baseline_count: saved
+            }});
+        }
         res.json({ success: true, saved, message: `Đã lưu ${saved} baseline screenshots` });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -325,19 +334,25 @@ router.post('/:id/visual-compare', async (req, res) => {
             return res.json({ results: [], message: 'Không tìm thấy screenshot nào để so sánh' });
         }
 
-        const comparisons = await visualRegression.compareRun(run.suite_id, flatSteps, path.join(__dirname, '../../../'));
+        // Use evidence dir for diff images so they are served via /evidence
+        const evidenceBase = path.join(__dirname, '../../../evidence');
+        const comparisons = await visualRegression.compareRun(run.suite_id, flatSteps, evidenceBase);
 
-        // Enrich comparisons with test_case_title and convert paths to relative
-        const rootDir = path.join(__dirname, '../../../');
+        // Convert paths to URL-friendly relative paths
+        const projectRoot = path.join(__dirname, '../../../');
+        const baselinesDir = path.join(__dirname, '../../data/baselines');
         const enriched = comparisons.map((c, i) => ({
             test_case_id: flatSteps[i].tc_id,
             test_case_title: flatSteps[i].test_case_title,
             step_id: c.step_id,
             match: c.status === 'match',
             diff_percent: c.matchPercent !== undefined ? (100 - c.matchPercent) : 0,
-            baseline_path: c.baselinePath ? path.relative(rootDir, c.baselinePath).replace(/\\/g, '/') : null,
-            current_path: c.currentPath ? path.relative(rootDir, c.currentPath).replace(/\\/g, '/') : null,
-            diff_path: c.diffImagePath ? path.relative(rootDir, c.diffImagePath).replace(/\\/g, '/') : null,
+            // baseline: served via /baselines static route
+            baseline_path: c.baselinePath ? 'baselines/' + path.relative(baselinesDir, c.baselinePath).replace(/\\/g, '/') : null,
+            // current: served via /evidence static route
+            current_path: c.currentPath ? path.relative(projectRoot, c.currentPath).replace(/\\/g, '/') : null,
+            // diff: saved in evidence dir, served via /evidence static route
+            diff_path: c.diffImagePath ? path.relative(projectRoot, c.diffImagePath).replace(/\\/g, '/') : null,
             status: c.status,
         }));
 
