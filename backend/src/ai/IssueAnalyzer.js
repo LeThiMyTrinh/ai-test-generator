@@ -108,7 +108,7 @@ class IssueAnalyzer {
             category: this.getCategory(issue.type),
             userImpact: 'MEDIUM',
             fixEffort: 'MEDIUM',
-            priority: 'SHOULD_FIX'
+            priority: 'MEDIUM'
         };
 
         // Factor 1: Viewport impact (+0 to +20)
@@ -280,10 +280,9 @@ class IssueAnalyzer {
      */
     scoreToPriority(score) {
         if (score >= 85) return 'CRITICAL';
-        if (score >= 70) return 'MUST_FIX';
-        if (score >= 50) return 'SHOULD_FIX';
-        if (score >= 30) return 'NICE_TO_HAVE';
-        return 'MINOR';
+        if (score >= 70) return 'HIGH';
+        if (score >= 50) return 'MEDIUM';
+        return 'LOW';
     }
 
     /**
@@ -398,11 +397,10 @@ class IssueAnalyzer {
         const summary = {
             total: issues.length,
             byPriority: {
-                CRITICAL: issues.filter(i => i.metadata.priority === 'CRITICAL').length,
-                MUST_FIX: issues.filter(i => i.metadata.priority === 'MUST_FIX').length,
-                SHOULD_FIX: issues.filter(i => i.metadata.priority === 'SHOULD_FIX').length,
-                NICE_TO_HAVE: issues.filter(i => i.metadata.priority === 'NICE_TO_HAVE').length,
-                MINOR: issues.filter(i => i.metadata.priority === 'MINOR').length
+                CRITICAL: issues.filter(i => i.severity === 'CRITICAL').length,
+                HIGH: issues.filter(i => i.severity === 'HIGH').length,
+                MEDIUM: issues.filter(i => i.severity === 'MEDIUM').length,
+                LOW: issues.filter(i => i.severity === 'LOW').length
             },
             byCategory: {},
             systematicProblems: patterns.systematic.length,

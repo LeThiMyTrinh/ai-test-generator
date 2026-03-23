@@ -85,7 +85,7 @@ class UIChecker {
                 low: allIssues.filter(i => i.severity === 'LOW').length,
             };
 
-            console.log(`[UIChecker] Analysis complete: ${summary.total} issues, ${summary.byPriority.MUST_FIX} must-fix, ${patterns.systematicProblems} systematic problems`);
+            console.log(`[UIChecker] Analysis complete: ${summary.total} issues, ${summary.byPriority.HIGH} high, ${patterns.systematicProblems} systematic problems`);
 
             await browser.close();
 

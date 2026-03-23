@@ -94,13 +94,14 @@
 
         <!-- Priority breakdown -->
         <% if (summary.byPriority) { %>
+        <% const priorityLabels = { CRITICAL: { icon: '🔴', label: 'Nghiêm trọng', color: '#991b1b' }, HIGH: { icon: '🟠', label: 'Cao', color: '#c2410c' }, MEDIUM: { icon: '🟡', label: 'Trung bình', color: '#a16207' }, LOW: { icon: '🟢', label: 'Thấp', color: '#15803d' } }; %>
         <div class="section">
             <h2>Phân loại theo mức độ</h2>
             <div style="display:flex;gap:16px;flex-wrap:wrap">
-                <% Object.entries(summary.byPriority).forEach(([p, count]) => { %>
+                <% Object.entries(summary.byPriority).forEach(([p, count]) => { const cfg = priorityLabels[p] || { icon: '📝', label: p, color: '#64748b' }; %>
                 <div style="padding:8px 16px;background:#f8fafc;border-radius:8px;text-align:center">
-                    <div style="font-size:20px;font-weight:700"><%= count %></div>
-                    <div style="font-size:11px;color:#64748b"><%= p %></div>
+                    <div style="font-size:20px;font-weight:700;color:<%= cfg.color %>"><%= count %></div>
+                    <div style="font-size:11px;color:#64748b"><%= cfg.icon %> <%= cfg.label %></div>
                 </div>
                 <% }); %>
             </div>
@@ -313,25 +314,50 @@
         </div>
         <% } %>
 
+        <!-- Screenshots: Initial & Final -->
+        <% if (screenshots.initial || screenshots.final) { %>
+        <div class="section">
+            <h2>Screenshots</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <% if (screenshots.initial) { %>
+                <div>
+                    <div class="screenshot-label">📸 Trước khi test</div>
+                    <img src="<%= screenshots.initial %>" alt="Initial" style="width:100%;border-radius:6px;border:1px solid #e2e8f0" />
+                </div>
+                <% } %>
+                <% if (screenshots.final) { %>
+                <div>
+                    <div class="screenshot-label">📸 Sau khi test</div>
+                    <img src="<%= screenshots.final %>" alt="Final" style="width:100%;border-radius:6px;border:1px solid #e2e8f0" />
+                </div>
+                <% } %>
+            </div>
+        </div>
+        <% } %>
+
         <!-- Test list -->
         <% if (record.result.tests && record.result.tests.length > 0) { %>
         <div class="section">
             <h2>Chi tiết Tests (<%= record.result.tests.length %>)</h2>
-            <table>
-                <thead><tr><th>#</th><th>Status</th><th>Type</th><th>Tên</th><th>Chi tiết</th><th>Thời gian</th></tr></thead>
-                <tbody>
-                    <% record.result.tests.forEach((test, idx) => { %>
-                    <tr class="test-<%= test.status %>">
-                        <td><%= idx + 1 %></td>
-                        <td><%= test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : test.status === 'warning' ? '⚠️' : '💥' %> <%= test.status %></td>
-                        <td><%= test.type %></td>
-                        <td><%= test.name %></td>
-                        <td style="max-width:300px"><%= (test.details || '').substring(0, 150) %></td>
-                        <td><%= test.duration_ms %>ms</td>
-                    </tr>
-                    <% }); %>
-                </tbody>
-            </table>
+            <% record.result.tests.forEach((test, idx) => { %>
+            <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:10px" class="test-<%= test.status %>">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <div>
+                        <span style="font-weight:600"><%= idx + 1 %>. <%= test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : test.status === 'warning' ? '⚠️' : '💥' %> <%= test.name %></span>
+                        <span class="badge" style="margin-left:8px;background:#f1f5f9;color:#475569"><%= test.type %></span>
+                    </div>
+                    <span style="font-size:11px;color:#94a3b8"><%= test.duration_ms %>ms</span>
+                </div>
+                <% if (test.details) { %>
+                <div style="font-size:12px;color:#475569;margin-bottom:6px"><%= test.details %></div>
+                <% } %>
+                <% if (screenshots['test_' + idx]) { %>
+                <div style="margin-top:8px;max-width:600px">
+                    <img src="<%= screenshots['test_' + idx] %>" alt="<%= test.name %>" style="width:100%;border-radius:6px;border:1px solid #e2e8f0;display:block" />
+                </div>
+                <% } %>
+            </div>
+            <% }); %>
         </div>
         <% } %>
 

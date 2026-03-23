@@ -22,6 +22,7 @@ class DesignComparer {
      */
     async compareWithUpload(designImageBuffer, url, opts = {}) {
         const viewport = opts.viewport || { width: 1920, height: 1080 };
+        const contextOptions = opts.contextOptions || { viewport };
         const threshold = opts.threshold || 0.15;
         const startTime = Date.now();
 
@@ -30,7 +31,7 @@ class DesignComparer {
         let pageScreenshot;
         let pageTitle = '';
         try {
-            const context = await browser.newContext({ viewport });
+            const context = await browser.newContext(contextOptions);
             const page = await context.newPage();
             await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
             await page.waitForTimeout(1500);

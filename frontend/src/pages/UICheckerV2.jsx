@@ -11,11 +11,10 @@ const SEVERITY_CONFIG = {
 }
 
 const PRIORITY_CONFIG = {
-    CRITICAL: { color: '#dc2626', label: '🔥 Cần fix ngay', icon: '🔥' },
-    MUST_FIX: { color: '#ea580c', label: '⚠️ Phải fix trước release', icon: '⚠️' },
-    SHOULD_FIX: { color: '#ca8a04', label: '⚡ Nên fix', icon: '⚡' },
-    NICE_TO_HAVE: { color: '#16a34a', label: '💡 Cải thiện', icon: '💡' },
-    MINOR: { color: '#64748b', label: '📝 Nhỏ', icon: '📝' },
+    CRITICAL: { color: '#dc2626', label: '🔴 Nghiêm trọng', icon: '🔴' },
+    HIGH: { color: '#ea580c', label: '🟠 Cao', icon: '🟠' },
+    MEDIUM: { color: '#ca8a04', label: '🟡 Trung bình', icon: '🟡' },
+    LOW: { color: '#16a34a', label: '🟢 Thấp', icon: '🟢' },
 }
 
 const TYPE_INFO = {
@@ -124,9 +123,9 @@ function viewportLabel(vp) {
 // Executive Summary Component
 function ExecutiveSummary({ result }) {
     const score = Math.max(0, Math.min(100, 100 - (result.summary.total * 2)))
-    const mustFix = result.issues.filter(i => i.metadata?.priority === 'CRITICAL' || i.metadata?.priority === 'MUST_FIX').length
-    const shouldFix = result.issues.filter(i => i.metadata?.priority === 'SHOULD_FIX').length
-    const improvements = result.issues.filter(i => i.metadata?.priority === 'NICE_TO_HAVE' || i.metadata?.priority === 'MINOR').length
+    const mustFix = result.issues.filter(i => i.metadata?.priority === 'CRITICAL' || i.metadata?.priority === 'HIGH').length
+    const shouldFix = result.issues.filter(i => i.metadata?.priority === 'MEDIUM').length
+    const improvements = result.issues.filter(i => i.metadata?.priority === 'LOW').length
 
     const mobileIssues = result.issues.filter(i => i.viewport === 'mobile').length
     const desktopIssues = result.issues.filter(i => i.viewport === 'desktop').length
@@ -264,7 +263,7 @@ function ManagerView({ result, onIssueHover, onIssueClick }) {
 
                     {category.issues.map((issue, idx) => {
                         const info = TYPE_INFO[issue.type] || {}
-                        const priority = PRIORITY_CONFIG[issue.metadata?.priority] || PRIORITY_CONFIG.SHOULD_FIX
+                        const priority = PRIORITY_CONFIG[issue.metadata?.priority] || PRIORITY_CONFIG.MEDIUM
                         return (
                             <div
                                 key={idx}

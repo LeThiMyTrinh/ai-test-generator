@@ -18,6 +18,7 @@ class InteractionTester {
     async test(url, opts = {}) {
         const level = opts.level || 'smart';
         const viewport = opts.viewport || { width: 1920, height: 1080 };
+        const contextOptions = opts.contextOptions || { viewport };
         const loginEmail = opts.loginEmail || null;
         const loginPassword = opts.loginPassword || null;
         const maxActions = opts.maxActions || 500;
@@ -26,7 +27,7 @@ class InteractionTester {
         const browser = await chromium.launch({ headless: true });
 
         try {
-            const context = await browser.newContext({ viewport });
+            const context = await browser.newContext(contextOptions);
             const page = await context.newPage();
 
             // Collect errors during the entire test

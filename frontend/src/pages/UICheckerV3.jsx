@@ -69,11 +69,13 @@ export default function UICheckerV3() {
     const [designPreview, setDesignPreview] = useState(null)
     const [designResult, setDesignResult] = useState(null)
     const [designThreshold, setDesignThreshold] = useState(0.15)
+    const [designDevice, setDesignDevice] = useState('desktop-1920x1080')
 
     // Interaction test state
     const [interactionResult, setInteractionResult] = useState(null)
     const [testLevel, setTestLevel] = useState('smart')
     const [maxActions, setMaxActions] = useState(500)
+    const [interactionDevice, setInteractionDevice] = useState('desktop-1920x1080')
 
     // Filter
     const [severityFilter, setSeverityFilter] = useState('all')
@@ -114,8 +116,7 @@ export default function UICheckerV3() {
             formData.append('designImage', designFile)
             formData.append('url', url)
             formData.append('threshold', designThreshold)
-            formData.append('viewportWidth', '1920')
-            formData.append('viewportHeight', '1080')
+            formData.append('device', designDevice)
 
             const { data } = await api.post('/api/ai/design-compare', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
@@ -140,6 +141,7 @@ export default function UICheckerV3() {
                 loginEmail: showLogin ? loginEmail : undefined,
                 loginPassword: showLogin ? loginPassword : undefined,
                 maxActions,
+                device: interactionDevice,
             }, { timeout: 300000 })
             setInteractionResult(data)
             const s = data.summary
@@ -287,11 +289,13 @@ export default function UICheckerV3() {
                     onFileChange={handleDesignFileChange} loading={loading}
                     onRun={runDesignCompare} result={designResult}
                     threshold={designThreshold} setThreshold={setDesignThreshold}
+                    presets={presets} device={designDevice} setDevice={setDesignDevice}
                 />}
                 {activeTab === 'interaction' && <InteractionTab
                     loading={loading} onRun={runInteractionTest} result={interactionResult}
                     testLevel={testLevel} setTestLevel={setTestLevel}
                     maxActions={maxActions} setMaxActions={setMaxActions}
+                    presets={presets} device={interactionDevice} setDevice={setInteractionDevice}
                 />}
                 {activeTab === 'history' && <HistoryTab
                     records={historyList} total={historyTotal} loading={historyLoading}
@@ -400,7 +404,26 @@ function EnhancedTab({ presets, desktop, setDesktop, tablet, setTablet, mobile, 
 
 // ========== TAB 2: DESIGN COMPARE ==========
 
-function DesignTab({ designFile, designPreview, onFileChange, loading, onRun, result, threshold, setThreshold }) {
+function DeviceSelector({ presets, device, setDevice }) {
+    const allDevices = [
+        ...(presets?.desktop || []).map(d => ({ value: `desktop-${d.value}`, label: `🖥️ ${d.label}`, group: 'Desktop' })),
+        ...(presets?.tablet || []).map(d => ({ value: `tablet-${d.value}`, label: `📱 ${d.label}`, group: 'Tablet' })),
+        ...(presets?.mobile || []).map(d => ({ value: `mobile-${d.value}`, label: `📲 ${d.label}`, group: 'Mobile' })),
+    ]
+    return (
+        <div>
+            <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>Thiết bị</label>
+            <select value={device} onChange={e => setDevice(e.target.value)}
+                style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff' }}>
+                {allDevices.map(d => (
+                    <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+            </select>
+        </div>
+    )
+}
+
+function DesignTab({ designFile, designPreview, onFileChange, loading, onRun, result, threshold, setThreshold, presets, device, setDevice }) {
     return (
         <div>
             <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 20 }}>
@@ -429,6 +452,9 @@ function DesignTab({ designFile, designPreview, onFileChange, loading, onRun, re
                 {/* Settings */}
                 <div style={{ width: 220 }}>
                     <div style={{ marginBottom: 12 }}>
+                        <DeviceSelector presets={presets} device={device} setDevice={setDevice} />
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
                         <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>Tolerance (0-1)</label>
                         <input type="range" min="0.05" max="0.5" step="0.05" value={threshold}
                             onChange={e => setThreshold(parseFloat(e.target.value))}
@@ -450,7 +476,7 @@ function DesignTab({ designFile, designPreview, onFileChange, loading, onRun, re
 
 // ========== TAB 3: INTERACTION TEST ==========
 
-function InteractionTab({ loading, onRun, result, testLevel, setTestLevel, maxActions, setMaxActions }) {
+function InteractionTab({ loading, onRun, result, testLevel, setTestLevel, maxActions, setMaxActions, presets, device, setDevice }) {
     const levelInfo = {
         smart: { label: 'Smart Test', desc: 'Tự phát hiện forms, buttons, links → test từng cái', icon: '🧠' },
         chaos: { label: 'Chaos Test', desc: 'Random click/type/scroll 500 lần → tìm crash', icon: '🐒' },
@@ -475,15 +501,20 @@ function InteractionTab({ loading, onRun, result, testLevel, setTestLevel, maxAc
                 ))}
             </div>
 
-            {/* Chaos settings */}
-            {(testLevel === 'chaos' || testLevel === 'full') && (
-                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label style={{ fontSize: 13, color: '#64748b' }}>Số hành động ngẫu nhiên:</label>
-                    <input type="number" value={maxActions} onChange={e => setMaxActions(parseInt(e.target.value) || 500)}
-                        min={100} max={2000} step={100}
-                        style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }} />
+            {/* Device + Chaos settings */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', marginBottom: 12, flexWrap: 'wrap' }}>
+                <div style={{ width: 220 }}>
+                    <DeviceSelector presets={presets} device={device} setDevice={setDevice} />
                 </div>
-            )}
+                {(testLevel === 'chaos' || testLevel === 'full') && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <label style={{ fontSize: 13, color: '#64748b' }}>Số hành động ngẫu nhiên:</label>
+                        <input type="number" value={maxActions} onChange={e => setMaxActions(parseInt(e.target.value) || 500)}
+                            min={100} max={2000} step={100}
+                            style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }} />
+                    </div>
+                )}
+            </div>
 
             <button onClick={onRun} disabled={loading}
                 style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: loading ? '#94a3b8' : '#059669', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -521,12 +552,15 @@ function QualityScoreCard({ summary }) {
             {/* Issue counts */}
             <div>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Phân loại theo mức độ</div>
-                {Object.entries(summary.byPriority || {}).map(([p, count]) => (
-                    <div key={p} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
-                        <span>{p === 'CRITICAL' ? '🔥' : p === 'MUST_FIX' ? '⚠️' : p === 'SHOULD_FIX' ? '⚡' : p === 'NICE_TO_HAVE' ? '💡' : '📝'} {p}</span>
-                        <span style={{ fontWeight: 600 }}>{count}</span>
-                    </div>
-                ))}
+                {Object.entries(summary.byPriority || {}).map(([p, count]) => {
+                    const cfg = SEVERITY_CONFIG[p] || {};
+                    return (
+                        <div key={p} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
+                            <span>{cfg.icon || '📝'} {cfg.label || p}</span>
+                            <span style={{ fontWeight: 600, color: cfg.color }}>{count}</span>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Stats */}

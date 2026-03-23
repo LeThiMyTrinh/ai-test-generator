@@ -95,6 +95,33 @@ function stripAndSaveScreenshots(result, historyId, type) {
     return screenshotMap;
 }
 
+/**
+ * Resolve device string (e.g. 'desktop-1920x1080', 'tablet-ipad-pro', 'mobile-iphone-15') to Playwright viewport/context options
+ */
+function resolveDevice(deviceStr) {
+    if (!deviceStr) return { viewport: { width: 1920, height: 1080 } };
+    const [type, ...rest] = deviceStr.split('-');
+    const key = rest.join('-');
+
+    if (type === 'desktop') {
+        const vp = DESKTOP_PRESETS[key];
+        return vp ? { viewport: vp } : { viewport: { width: 1920, height: 1080 } };
+    }
+    if (type === 'tablet') {
+        const pwName = TABLET_PRESETS[key];
+        const { devices } = require('playwright');
+        if (pwName && devices[pwName]) return { ...devices[pwName] };
+        return { viewport: { width: 768, height: 1024 } };
+    }
+    if (type === 'mobile') {
+        const pwName = MOBILE_PRESETS[key];
+        const { devices } = require('playwright');
+        if (pwName && devices[pwName]) return { ...devices[pwName] };
+        return { viewport: { width: 375, height: 812 } };
+    }
+    return { viewport: { width: 1920, height: 1080 } };
+}
+
 const UPLOADS_DIR = path.join(__dirname, '../../../uploads/ai');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -442,22 +469,21 @@ router.post('/ui-check-v3', async (req, res) => {
 // POST /api/ai/design-compare — Compare design image vs live page
 router.post('/design-compare', upload.single('designImage'), async (req, res) => {
     try {
-        const { url, threshold, viewportWidth, viewportHeight } = req.body;
+        const { url, threshold, device } = req.body;
         if (!url) return res.status(400).json({ error: 'Cần cung cấp URL.' });
         if (!req.file) return res.status(400).json({ error: 'Cần upload ảnh design.' });
 
         const designBuffer = fs.readFileSync(req.file.path);
         fs.unlinkSync(req.file.path); // Cleanup
 
-        const viewport = {
-            width: parseInt(viewportWidth) || 1920,
-            height: parseInt(viewportHeight) || 1080,
-        };
+        const deviceOpts = resolveDevice(device);
+        const viewport = deviceOpts.viewport || { width: 1920, height: 1080 };
 
-        console.log(`[DesignComparer] Comparing design vs ${url} at ${viewport.width}×${viewport.height}`);
+        console.log(`[DesignComparer] Comparing design vs ${url} at ${viewport.width}×${viewport.height} (${device || 'default'})`);
 
         const result = await designComparer.compareWithUpload(designBuffer, url, {
             viewport,
+            contextOptions: deviceOpts,
             threshold: parseFloat(threshold) || 0.15,
         });
 
@@ -540,33 +566,39 @@ router.post('/design-compare-figma', async (req, res) => {
 // POST /api/ai/interaction-test — Run interaction tests
 router.post('/interaction-test', async (req, res) => {
     try {
-        const { url, level, loginEmail, loginPassword, maxActions } = req.body;
+        const { url, level, loginEmail, loginPassword, maxActions, device } = req.body;
         if (!url) return res.status(400).json({ error: 'Cần cung cấp URL.' });
 
         const validLevels = ['static', 'smart', 'chaos', 'full'];
         const testLevel = validLevels.includes(level) ? level : 'smart';
 
-        console.log(`[InteractionTester] Starting ${testLevel} test: ${url}`);
+        const deviceOpts = resolveDevice(device);
+        const viewport = deviceOpts.viewport || { width: 1920, height: 1080 };
+
+        console.log(`[InteractionTester] Starting ${testLevel} test: ${url} (${device || 'default'})`);
 
         const result = await interactionTester.test(url, {
             level: testLevel,
             loginEmail,
             loginPassword,
             maxActions: parseInt(maxActions) || 500,
+            viewport,
+            contextOptions: deviceOpts,
         });
 
         console.log(`[InteractionTester] Done: ${result.summary.totalTests} tests, ${result.summary.passed} passed, ${result.summary.failed} failed`);
 
-        // Save to history
+        // Save to history (use deep copy so original result keeps screenshots for response)
         try {
+            const resultForDb = JSON.parse(JSON.stringify(result));
             const historyRecord = await db.uiCheckerHistory.insert({
                 type: 'interaction',
                 url,
                 created_at: new Date().toISOString(),
-                result: { ...result, initialScreenshot: undefined, finalScreenshot: undefined },
+                result: { ...resultForDb, initialScreenshot: undefined, finalScreenshot: undefined },
                 screenshotMap: {},
             });
-            const screenshotMap = stripAndSaveScreenshots(result, historyRecord._id, 'interaction');
+            const screenshotMap = stripAndSaveScreenshots(resultForDb, historyRecord._id, 'interaction');
             await db.uiCheckerHistory.update({ _id: historyRecord._id }, { $set: { screenshotMap } });
             result._historyId = historyRecord._id;
             console.log(`[History] Saved interaction test: ${historyRecord._id}`);
