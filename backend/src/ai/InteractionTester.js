@@ -1,5 +1,29 @@
 /**
  * InteractionTester - Auto-discover interactive elements and test them
+ * Enhanced with 14 test groups (100 cases) — Phase 1 + Phase 2 + Phase 3 + Phase 4
+ *
+ * Phase 1 (Core):
+ *   1. Navigation & Routing (9 cases)
+ *   2. Form Validation (12 cases)
+ *   3. Form Boundary Testing (10 cases)
+ *   4. Button Interaction (8 cases)
+ *   5. Modal & Dialog (10 cases)
+ *   6. Dropdown (7 cases)
+ *
+ * Phase 2 (UX):
+ *   7. Hover & Tooltip (5 cases)
+ *   8. Scroll & Lazy Load (7 cases)
+ *   9. Broken Resources (5 cases)
+ *  10. Tab & Accordion (6 cases)
+ *
+ * Phase 3 (A11y + Responsive):
+ *  11. Responsive Menu & Accessibility (9 cases)
+ *
+ * Phase 4 (Advanced):
+ *  12. Cookie Consent / Banner (4 cases)
+ *  13. Loading & Error States (5 cases)
+ *  14. Media & Video (4 cases)
+ *
  * 3 Levels: Static Scan → Smart Interaction → Chaos Test
  * ZERO API dependency
  */
@@ -8,7 +32,53 @@ const { chromium, devices } = require('playwright');
 const path = require('path');
 const AutoLogin = require('./AutoLogin');
 
+// Phase 1 Test Groups
+const NavigationTests = require('./interaction-tests/NavigationTests');
+const FormValidationTests = require('./interaction-tests/FormValidationTests');
+const FormBoundaryTests = require('./interaction-tests/FormBoundaryTests');
+const ButtonTests = require('./interaction-tests/ButtonTests');
+const ModalTests = require('./interaction-tests/ModalTests');
+const DropdownTests = require('./interaction-tests/DropdownTests');
+
+// Phase 2 Test Groups
+const HoverTooltipTests = require('./interaction-tests/HoverTooltipTests');
+const ScrollLazyLoadTests = require('./interaction-tests/ScrollLazyLoadTests');
+const BrokenResourceTests = require('./interaction-tests/BrokenResourceTests');
+const TabAccordionTests = require('./interaction-tests/TabAccordionTests');
+
+// Phase 3 Test Groups
+const ResponsiveAccessibilityTests = require('./interaction-tests/ResponsiveAccessibilityTests');
+
+// Phase 4 Test Groups
+const CookieConsentTests = require('./interaction-tests/CookieConsentTests');
+const LoadingErrorStateTests = require('./interaction-tests/LoadingErrorStateTests');
+const MediaVideoTests = require('./interaction-tests/MediaVideoTests');
+
 class InteractionTester {
+    constructor() {
+        // Phase 1 test group runners
+        this._navigationTests = new NavigationTests();
+        this._formValidationTests = new FormValidationTests();
+        this._formBoundaryTests = new FormBoundaryTests();
+        this._buttonTests = new ButtonTests();
+        this._modalTests = new ModalTests();
+        this._dropdownTests = new DropdownTests();
+
+        // Phase 2 test group runners
+        this._hoverTooltipTests = new HoverTooltipTests();
+        this._scrollLazyLoadTests = new ScrollLazyLoadTests();
+        this._brokenResourceTests = new BrokenResourceTests();
+        this._tabAccordionTests = new TabAccordionTests();
+
+        // Phase 3 test group runners
+        this._responsiveA11yTests = new ResponsiveAccessibilityTests();
+
+        // Phase 4 test group runners
+        this._cookieConsentTests = new CookieConsentTests();
+        this._loadingErrorTests = new LoadingErrorStateTests();
+        this._mediaVideoTests = new MediaVideoTests();
+    }
+
     /**
      * Run interaction tests on a URL
      * @param {string} url
@@ -71,6 +141,7 @@ class InteractionTester {
                 discovery,
                 initialScreenshot: initialBase64,
                 tests: [],
+                testGroups: {},
                 chaosResult: null,
                 errors,
                 consoleErrors,
@@ -78,10 +149,12 @@ class InteractionTester {
                 duration_ms: 0,
             };
 
-            // Step 2: Run smart interaction tests
+            // Step 2: Run smart interaction tests (10 groups)
             if (level === 'smart' || level === 'full') {
-                console.log('[InteractionTester] Running smart interaction tests...');
-                results.tests = await this._runSmartTests(page, discovery, url);
+                console.log('[InteractionTester] Running smart tests (14 groups)...');
+                const { allTests, groupResults } = await this._runSmartTests(page, discovery, url);
+                results.tests = allTests;
+                results.testGroups = groupResults;
             }
 
             // Step 3: Run chaos test
@@ -227,480 +300,201 @@ class InteractionTester {
     }
 
     /**
-     * Run smart interaction tests based on discovered elements
+     * Run smart interaction tests — 6 groups orchestration
      */
     async _runSmartTests(page, discovery, baseUrl) {
-        const tests = [];
+        const allTests = [];
+        const groupResults = {};
 
-        // Test navigation links (limit to 10)
-        const navToTest = discovery.navLinks.filter(l => !l.isExternal).slice(0, 10);
-        for (const link of navToTest) {
-            const test = await this._testNavigation(page, link, baseUrl);
-            tests.push(test);
-        }
-
-        // Test forms
-        for (const form of discovery.forms.slice(0, 5)) {
-            // Test 1: Submit empty form (validation check)
-            const emptyTest = await this._testFormEmpty(page, form);
-            tests.push(emptyTest);
-
-            // Test 2: Fill and submit with sample data
-            const fillTest = await this._testFormFill(page, form);
-            tests.push(fillTest);
-        }
-
-        // Test buttons
-        for (const button of discovery.buttons.slice(0, 10)) {
-            const btnTest = await this._testButton(page, button);
-            tests.push(btnTest);
-        }
-
-        // Test modals
-        for (const modal of discovery.modals.slice(0, 5)) {
-            const modalTest = await this._testModal(page, modal);
-            tests.push(modalTest);
-        }
-
-        // Test dropdowns
-        for (const dd of discovery.dropdowns.slice(0, 5)) {
-            const ddTest = await this._testDropdown(page, dd);
-            tests.push(ddTest);
-        }
-
-        return tests;
-    }
-
-    /**
-     * Test a navigation link
-     */
-    async _testNavigation(page, link, baseUrl) {
-        const test = {
-            type: 'navigation',
-            name: `Navigate: "${link.text}"`,
-            selector: link.selector,
-            target: link.href,
-            status: 'pending',
-            details: '',
-            screenshot: null,
-            duration_ms: 0,
-        };
-
-        const start = Date.now();
+        // Group 1: Navigation & Routing
         try {
-            const currentUrl = page.url();
-            const response = await page.goto(link.href, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(500);
-
-            if (response && response.status() >= 400) {
-                test.status = 'failed';
-                test.details = `HTTP ${response.status()} error`;
-            } else {
-                test.status = 'passed';
-                test.details = `Loaded successfully (${response ? response.status() : 'OK'})`;
-            }
-
-            // Take screenshot
-            const ss = await page.screenshot({ type: 'png' });
-            test.screenshot = 'data:image/png;base64,' + ss.toString('base64');
-
-            // Navigate back
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            console.log('[InteractionTester] → Group 1: Navigation & Routing...');
+            const navTests = await this._navigationTests.run(page, discovery, baseUrl);
+            groupResults.navigation = { tests: navTests, count: navTests.length };
+            allTests.push(...navTests);
+            // Navigate back to base URL for next group
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
             await page.waitForTimeout(500);
         } catch (err) {
-            test.status = 'failed';
-            test.details = `Error: ${err.message.substring(0, 200)}`;
+            console.error('[InteractionTester] Group 1 error:', err.message);
+            groupResults.navigation = { tests: [], error: err.message };
         }
-        test.duration_ms = Date.now() - start;
-        return test;
-    }
 
-    /**
-     * Test submitting empty form (validation)
-     */
-    async _testFormEmpty(page, form) {
-        const test = {
-            type: 'form_validation',
-            name: `Form validation: "${form.submitText || form.selector}"`,
-            selector: form.selector,
-            status: 'pending',
-            details: '',
-            screenshot: null,
-            duration_ms: 0,
-        };
-
-        const start = Date.now();
+        // Group 2: Form Validation
         try {
-            if (!form.submitSelector) {
-                test.status = 'skipped';
-                test.details = 'No submit button found';
-                test.duration_ms = Date.now() - start;
-                return test;
-            }
-
-            // Click submit without filling anything
-            const submitBtn = await page.$(form.submitSelector);
-            if (!submitBtn) {
-                test.status = 'skipped';
-                test.details = 'Submit button not found in DOM';
-                test.duration_ms = Date.now() - start;
-                return test;
-            }
-
-            await submitBtn.click();
-            await page.waitForTimeout(1000);
-
-            // Check if HTML5 validation triggered
-            const hasValidationErrors = await page.evaluate((formSelector) => {
-                const formEl = document.querySelector(formSelector);
-                if (!formEl) return false;
-                const inputs = formEl.querySelectorAll('input[required], select[required], textarea[required]');
-                for (const input of inputs) {
-                    if (!input.checkValidity()) return true;
-                }
-                return false;
-            }, form.selector);
-
-            // Check for visible error messages
-            const errorMessages = await page.evaluate(() => {
-                const errorSelectors = [
-                    '.error', '.error-message', '.invalid-feedback', '.field-error',
-                    '[role="alert"]', '.alert-danger', '.form-error', '.validation-error',
-                    '.text-danger', '.text-red-500', '.has-error'
-                ];
-                const errors = [];
-                for (const sel of errorSelectors) {
-                    document.querySelectorAll(sel).forEach(el => {
-                        const text = el.textContent.trim();
-                        if (text.length > 0 && text.length < 200) {
-                            const style = getComputedStyle(el);
-                            if (style.display !== 'none' && style.visibility !== 'hidden') {
-                                errors.push(text.substring(0, 100));
-                            }
-                        }
-                    });
-                }
-                return errors;
-            });
-
-            const requiredFields = form.fields.filter(f => f.required);
-
-            if (hasValidationErrors || errorMessages.length > 0) {
-                test.status = 'passed';
-                test.details = `Validation hoạt động đúng. ${requiredFields.length} required fields, ${errorMessages.length} error messages hiển thị`;
-                if (errorMessages.length > 0) {
-                    test.details += `. Errors: ${errorMessages.slice(0, 3).join('; ')}`;
-                }
-            } else if (requiredFields.length > 0) {
-                test.status = 'warning';
-                test.details = `Form có ${requiredFields.length} required fields nhưng không hiển thị validation errors khi submit trống`;
-            } else {
-                test.status = 'passed';
-                test.details = 'Form không có required fields';
-            }
-
-            const ss = await page.screenshot({ type: 'png' });
-            test.screenshot = 'data:image/png;base64,' + ss.toString('base64');
-        } catch (err) {
-            test.status = 'error';
-            test.details = `Error: ${err.message.substring(0, 200)}`;
-        }
-        test.duration_ms = Date.now() - start;
-        return test;
-    }
-
-    /**
-     * Test filling form with sample data
-     */
-    async _testFormFill(page, form) {
-        const test = {
-            type: 'form_fill',
-            name: `Form fill: "${form.submitText || form.selector}"`,
-            selector: form.selector,
-            status: 'pending',
-            details: '',
-            screenshot: null,
-            duration_ms: 0,
-        };
-
-        const start = Date.now();
-        try {
-            const filledFields = [];
-            for (const field of form.fields) {
-                try {
-                    const el = await page.$(field.selector);
-                    if (!el) continue;
-
-                    const value = this._getSampleValue(field);
-                    if (value === null) continue;
-
-                    if (field.tag === 'select') {
-                        // Select first non-empty option
-                        await page.selectOption(field.selector, { index: 1 }).catch(() => {});
-                        filledFields.push(`${field.name || field.type}: [selected option]`);
-                    } else if (field.type === 'checkbox' || field.type === 'radio') {
-                        await el.check().catch(() => {});
-                        filledFields.push(`${field.name}: checked`);
-                    } else {
-                        await el.fill(value);
-                        filledFields.push(`${field.name || field.type}: "${value}"`);
-                    }
-                } catch (e) {
-                    // Skip fields we can't interact with
-                }
-            }
-
-            test.status = 'passed';
-            test.details = `Filled ${filledFields.length}/${form.fields.length} fields: ${filledFields.join(', ')}`;
-
-            const ss = await page.screenshot({ type: 'png' });
-            test.screenshot = 'data:image/png;base64,' + ss.toString('base64');
-        } catch (err) {
-            test.status = 'error';
-            test.details = `Error: ${err.message.substring(0, 200)}`;
-        }
-        test.duration_ms = Date.now() - start;
-        return test;
-    }
-
-    /**
-     * Get sample data for a form field
-     */
-    _getSampleValue(field) {
-        const name = (field.name || '').toLowerCase();
-        const type = (field.type || 'text').toLowerCase();
-        const placeholder = (field.placeholder || '').toLowerCase();
-
-        if (type === 'email' || name.includes('email')) return 'test@example.com';
-        if (type === 'password' || name.includes('password')) return 'TestPass123!';
-        if (type === 'tel' || name.includes('phone') || name.includes('tel')) return '0901234567';
-        if (type === 'url') return 'https://example.com';
-        if (type === 'number' || name.includes('age') || name.includes('quantity')) return '25';
-        if (type === 'date') return '2025-01-15';
-        if (name.includes('name') || name.includes('user')) return 'Test User';
-        if (name.includes('address')) return '123 Test Street';
-        if (name.includes('city')) return 'Ho Chi Minh City';
-        if (name.includes('zip') || name.includes('postal')) return '700000';
-        if (name.includes('search') || placeholder.includes('search') || placeholder.includes('tìm')) return 'test search query';
-        if (name.includes('message') || name.includes('comment') || name.includes('content')) return 'This is a test message for automated testing.';
-        if (type === 'text') return 'Test Input';
-        if (type === 'checkbox' || type === 'radio') return null; // handled separately
-        if (field.tag === 'textarea') return 'This is test content for the textarea field.';
-        if (field.tag === 'select') return null; // handled separately
-        return 'test';
-    }
-
-    /**
-     * Test a button click
-     */
-    async _testButton(page, button) {
-        const test = {
-            type: 'button_click',
-            name: `Click: "${button.text || button.id}"`,
-            selector: button.selector,
-            status: 'pending',
-            details: '',
-            screenshot: null,
-            duration_ms: 0,
-        };
-
-        const start = Date.now();
-        try {
-            // Capture state before click
-            const beforeUrl = page.url();
-            const beforeHTML = await page.evaluate(() => document.body.innerHTML.length);
-
-            // Try to click
-            const btn = await page.$(button.id ? `#${button.id}` : button.selector).catch(() => null);
-            if (!btn) {
-                test.status = 'skipped';
-                test.details = 'Button not found in DOM';
-                test.duration_ms = Date.now() - start;
-                return test;
-            }
-
-            // Check if visible
-            const isVisible = await btn.isVisible().catch(() => false);
-            if (!isVisible) {
-                test.status = 'skipped';
-                test.details = 'Button is not visible';
-                test.duration_ms = Date.now() - start;
-                return test;
-            }
-
-            await btn.click({ timeout: 5000 });
-            await page.waitForTimeout(1000);
-
-            // Check what changed
-            const afterUrl = page.url();
-            const afterHTML = await page.evaluate(() => document.body.innerHTML.length);
-
-            const changes = [];
-            if (afterUrl !== beforeUrl) changes.push(`URL changed to ${afterUrl}`);
-            if (Math.abs(afterHTML - beforeHTML) > 100) changes.push(`DOM changed (${afterHTML - beforeHTML > 0 ? '+' : ''}${afterHTML - beforeHTML} chars)`);
-
-            // Check for new dialogs/modals
-            const hasModal = await page.evaluate(() => {
-                const modal = document.querySelector('.modal.show, [role="dialog"][aria-modal="true"], dialog[open]');
-                return modal ? modal.textContent.substring(0, 100) : null;
-            });
-            if (hasModal) changes.push(`Modal opened: "${hasModal.substring(0, 50)}"`);
-
-            test.status = 'passed';
-            test.details = changes.length > 0
-                ? `Button clicked successfully. Changes: ${changes.join('; ')}`
-                : 'Button clicked, no visible changes detected';
-
-            const ss = await page.screenshot({ type: 'png' });
-            test.screenshot = 'data:image/png;base64,' + ss.toString('base64');
-
-            // Try to close modal if opened
-            if (hasModal) {
-                await page.keyboard.press('Escape');
-                await page.waitForTimeout(300);
-            }
-
-            // Navigate back if URL changed
-            if (afterUrl !== beforeUrl) {
-                await page.goBack().catch(() => page.goto(beforeUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }));
-                await page.waitForTimeout(500);
-            }
-        } catch (err) {
-            test.status = 'error';
-            test.details = `Error: ${err.message.substring(0, 200)}`;
-        }
-        test.duration_ms = Date.now() - start;
-        return test;
-    }
-
-    /**
-     * Test modal open/close
-     */
-    async _testModal(page, modal) {
-        const test = {
-            type: 'modal',
-            name: `Modal: "${modal.triggerText}"`,
-            selector: modal.triggerSelector,
-            status: 'pending',
-            details: '',
-            screenshot: null,
-            duration_ms: 0,
-        };
-
-        const start = Date.now();
-        try {
-            const trigger = await page.$(modal.triggerSelector);
-            if (!trigger) {
-                test.status = 'skipped';
-                test.details = 'Modal trigger not found';
-                test.duration_ms = Date.now() - start;
-                return test;
-            }
-
-            await trigger.click();
-            await page.waitForTimeout(800);
-
-            // Check if modal opened
-            const modalVisible = await page.evaluate((targetSel) => {
-                if (targetSel) {
-                    const modal = document.querySelector(targetSel);
-                    if (modal) {
-                        const style = getComputedStyle(modal);
-                        return style.display !== 'none' && style.visibility !== 'hidden';
-                    }
-                }
-                // Fallback: check for any visible modal
-                const anyModal = document.querySelector('.modal.show, .modal.in, [role="dialog"]:not([aria-hidden="true"]), dialog[open]');
-                return !!anyModal;
-            }, modal.targetSelector);
-
-            if (modalVisible) {
-                test.status = 'passed';
-                test.details = 'Modal opened successfully';
-
-                const ss = await page.screenshot({ type: 'png' });
-                test.screenshot = 'data:image/png;base64,' + ss.toString('base64');
-
-                // Close modal
-                await page.keyboard.press('Escape');
-                await page.waitForTimeout(500);
-
-                // Verify closed
-                const stillVisible = await page.evaluate(() => {
-                    const modal = document.querySelector('.modal.show, .modal.in, dialog[open]');
-                    return !!modal;
-                });
-
-                if (stillVisible) {
-                    test.details += ' | Warning: Modal không đóng bằng ESC key';
-                    // Try clicking close button
-                    const closeBtn = await page.$('.modal.show .close, .modal.show [data-dismiss="modal"], .modal.show [data-bs-dismiss="modal"], dialog[open] button');
-                    if (closeBtn) await closeBtn.click().catch(() => {});
-                    await page.waitForTimeout(300);
-                } else {
-                    test.details += ' | ESC close hoạt động đúng';
-                }
-            } else {
-                test.status = 'failed';
-                test.details = 'Modal trigger clicked but modal did not appear';
-            }
-        } catch (err) {
-            test.status = 'error';
-            test.details = `Error: ${err.message.substring(0, 200)}`;
-        }
-        test.duration_ms = Date.now() - start;
-        return test;
-    }
-
-    /**
-     * Test dropdown open/close
-     */
-    async _testDropdown(page, dd) {
-        const test = {
-            type: 'dropdown',
-            name: `Dropdown: "${dd.text}"`,
-            selector: dd.selector,
-            status: 'pending',
-            details: '',
-            duration_ms: 0,
-        };
-
-        const start = Date.now();
-        try {
-            const trigger = await page.$(dd.selector);
-            if (!trigger) {
-                test.status = 'skipped';
-                test.details = 'Dropdown trigger not found';
-                test.duration_ms = Date.now() - start;
-                return test;
-            }
-
-            await trigger.click();
+            console.log('[InteractionTester] → Group 2: Form Validation...');
+            const formTests = await this._formValidationTests.run(page, discovery, baseUrl);
+            groupResults.formValidation = { tests: formTests, count: formTests.length };
+            allTests.push(...formTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
             await page.waitForTimeout(500);
-
-            // Check if dropdown/menu appeared
-            const menuVisible = await page.evaluate(() => {
-                const menus = document.querySelectorAll('.dropdown-menu.show, .dropdown-menu[style*="display: block"], details[open] > *:not(summary)');
-                return menus.length > 0;
-            });
-
-            if (menuVisible) {
-                test.status = 'passed';
-                test.details = 'Dropdown opened successfully';
-            } else {
-                test.status = 'warning';
-                test.details = 'Dropdown trigger clicked, could not verify menu visibility';
-            }
-
-            // Close by clicking outside
-            await page.click('body', { position: { x: 10, y: 10 } }).catch(() => {});
-            await page.waitForTimeout(300);
         } catch (err) {
-            test.status = 'error';
-            test.details = `Error: ${err.message.substring(0, 200)}`;
+            console.error('[InteractionTester] Group 2 error:', err.message);
+            groupResults.formValidation = { tests: [], error: err.message };
         }
-        test.duration_ms = Date.now() - start;
-        return test;
+
+        // Group 3: Form Boundary Testing
+        try {
+            console.log('[InteractionTester] → Group 3: Form Boundary Testing...');
+            const boundaryTests = await this._formBoundaryTests.run(page, discovery, baseUrl);
+            groupResults.formBoundary = { tests: boundaryTests, count: boundaryTests.length };
+            allTests.push(...boundaryTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 3 error:', err.message);
+            groupResults.formBoundary = { tests: [], error: err.message };
+        }
+
+        // Group 4: Button Interaction
+        try {
+            console.log('[InteractionTester] → Group 4: Button Interaction...');
+            const btnTests = await this._buttonTests.run(page, discovery, baseUrl);
+            groupResults.button = { tests: btnTests, count: btnTests.length };
+            allTests.push(...btnTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 4 error:', err.message);
+            groupResults.button = { tests: [], error: err.message };
+        }
+
+        // Group 5: Modal & Dialog
+        try {
+            console.log('[InteractionTester] → Group 5: Modal & Dialog...');
+            const modalTests = await this._modalTests.run(page, discovery, baseUrl);
+            groupResults.modal = { tests: modalTests, count: modalTests.length };
+            allTests.push(...modalTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 5 error:', err.message);
+            groupResults.modal = { tests: [], error: err.message };
+        }
+
+        // Group 6: Dropdown
+        try {
+            console.log('[InteractionTester] → Group 6: Dropdown...');
+            const ddTests = await this._dropdownTests.run(page, discovery, baseUrl);
+            groupResults.dropdown = { tests: ddTests, count: ddTests.length };
+            allTests.push(...ddTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 6 error:', err.message);
+            groupResults.dropdown = { tests: [], error: err.message };
+        }
+
+        // ===== Phase 2: UX Groups =====
+
+        // Group 7: Hover & Tooltip
+        try {
+            console.log('[InteractionTester] → Group 7: Hover & Tooltip...');
+            const hoverTests = await this._hoverTooltipTests.run(page, discovery, baseUrl);
+            groupResults.hoverTooltip = { tests: hoverTests, count: hoverTests.length };
+            allTests.push(...hoverTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 7 error:', err.message);
+            groupResults.hoverTooltip = { tests: [], error: err.message };
+        }
+
+        // Group 8: Scroll & Lazy Load
+        try {
+            console.log('[InteractionTester] → Group 8: Scroll & Lazy Load...');
+            const scrollTests = await this._scrollLazyLoadTests.run(page, discovery, baseUrl);
+            groupResults.scrollLazyLoad = { tests: scrollTests, count: scrollTests.length };
+            allTests.push(...scrollTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 8 error:', err.message);
+            groupResults.scrollLazyLoad = { tests: [], error: err.message };
+        }
+
+        // Group 9: Broken Resources
+        try {
+            console.log('[InteractionTester] → Group 9: Broken Resources...');
+            const resourceTests = await this._brokenResourceTests.run(page, discovery, baseUrl);
+            groupResults.brokenResources = { tests: resourceTests, count: resourceTests.length };
+            allTests.push(...resourceTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 9 error:', err.message);
+            groupResults.brokenResources = { tests: [], error: err.message };
+        }
+
+        // Group 10: Tab & Accordion
+        try {
+            console.log('[InteractionTester] → Group 10: Tab & Accordion...');
+            const tabTests = await this._tabAccordionTests.run(page, discovery, baseUrl);
+            groupResults.tabAccordion = { tests: tabTests, count: tabTests.length };
+            allTests.push(...tabTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 10 error:', err.message);
+            groupResults.tabAccordion = { tests: [], error: err.message };
+        }
+
+        // ===== Phase 3: A11y + Responsive =====
+
+        // Group 11: Responsive Menu & Accessibility
+        try {
+            console.log('[InteractionTester] → Group 11: Responsive Menu & Accessibility...');
+            const a11yTests = await this._responsiveA11yTests.run(page, discovery, baseUrl);
+            groupResults.responsiveA11y = { tests: a11yTests, count: a11yTests.length };
+            allTests.push(...a11yTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 11 error:', err.message);
+            groupResults.responsiveA11y = { tests: [], error: err.message };
+        }
+
+        // ===== Phase 4: Advanced Groups =====
+
+        // Group 12: Cookie Consent / Banner
+        try {
+            console.log('[InteractionTester] → Group 12: Cookie Consent / Banner...');
+            const cookieTests = await this._cookieConsentTests.run(page, discovery, baseUrl);
+            groupResults.cookieConsent = { tests: cookieTests, count: cookieTests.length };
+            allTests.push(...cookieTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 12 error:', err.message);
+            groupResults.cookieConsent = { tests: [], error: err.message };
+        }
+
+        // Group 13: Loading & Error States
+        try {
+            console.log('[InteractionTester] → Group 13: Loading & Error States...');
+            const loadingTests = await this._loadingErrorTests.run(page, discovery, baseUrl);
+            groupResults.loadingError = { tests: loadingTests, count: loadingTests.length };
+            allTests.push(...loadingTests);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(500);
+        } catch (err) {
+            console.error('[InteractionTester] Group 13 error:', err.message);
+            groupResults.loadingError = { tests: [], error: err.message };
+        }
+
+        // Group 14: Media & Video
+        try {
+            console.log('[InteractionTester] → Group 14: Media & Video...');
+            const mediaTests = await this._mediaVideoTests.run(page, discovery, baseUrl);
+            groupResults.mediaVideo = { tests: mediaTests, count: mediaTests.length };
+            allTests.push(...mediaTests);
+        } catch (err) {
+            console.error('[InteractionTester] Group 14 error:', err.message);
+            groupResults.mediaVideo = { tests: [], error: err.message };
+        }
+
+        console.log(`[InteractionTester] Smart tests complete: ${allTests.length} tests across 14 groups`);
+        return { allTests, groupResults };
     }
 
     /**
@@ -760,13 +554,9 @@ class InteractionTester {
 
                         try {
                             if (actionType < 0.35) {
-                                // Click random element
                                 const el = getRandomElement();
-                                if (el) {
-                                    el.click();
-                                }
+                                if (el) el.click();
                             } else if (actionType < 0.50) {
-                                // Click random position
                                 const pos = getRandomPosition();
                                 const el = document.elementFromPoint(
                                     Math.min(pos.x, window.innerWidth - 1),
@@ -774,7 +564,6 @@ class InteractionTester {
                                 );
                                 if (el) el.click();
                             } else if (actionType < 0.65) {
-                                // Type random text in random input
                                 const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), textarea');
                                 if (inputs.length > 0) {
                                     const input = inputs[Math.floor(Math.random() * inputs.length)];
@@ -789,20 +578,17 @@ class InteractionTester {
                                     input.dispatchEvent(new Event('change', { bubbles: true }));
                                 }
                             } else if (actionType < 0.80) {
-                                // Scroll randomly
                                 window.scrollTo({
                                     top: Math.floor(Math.random() * document.body.scrollHeight),
                                     behavior: 'auto'
                                 });
                             } else if (actionType < 0.90) {
-                                // Hover random element
                                 const el = getRandomElement();
                                 if (el) {
                                     el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
                                     el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
                                 }
                             } else {
-                                // Double click random element
                                 const el = getRandomElement();
                                 if (el) {
                                     el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -812,7 +598,6 @@ class InteractionTester {
                             errors.push({ action: actionCount, message: e.message });
                         }
 
-                        // Next action with small delay
                         setTimeout(doRandomAction, 20);
                     }
 
@@ -820,10 +605,8 @@ class InteractionTester {
                 });
             }, maxActions);
 
-            // Wait for any pending effects
             await page.waitForTimeout(2000);
 
-            // Check if page is still responsive
             const isResponsive = await Promise.race([
                 page.evaluate(() => document.title).then(() => true),
                 new Promise(resolve => setTimeout(() => resolve(false), 5000))
@@ -848,7 +631,7 @@ class InteractionTester {
     }
 
     /**
-     * Generate test summary
+     * Generate test summary — enhanced for grouped tests
      */
     _generateSummary(results) {
         const tests = results.tests || [];
@@ -858,6 +641,23 @@ class InteractionTester {
         const errors = tests.filter(t => t.status === 'error').length;
         const skipped = tests.filter(t => t.status === 'skipped').length;
 
+        // Group-level summaries
+        const groupSummaries = {};
+        if (results.testGroups) {
+            for (const [groupName, groupData] of Object.entries(results.testGroups)) {
+                const gTests = groupData.tests || [];
+                groupSummaries[groupName] = {
+                    total: gTests.length,
+                    passed: gTests.filter(t => t.status === 'passed').length,
+                    failed: gTests.filter(t => t.status === 'failed').length,
+                    warnings: gTests.filter(t => t.status === 'warning').length,
+                    skipped: gTests.filter(t => t.status === 'skipped').length,
+                    error: groupData.error || null,
+                };
+            }
+        }
+
+        const effectiveTests = tests.length - skipped;
         const summary = {
             totalTests: tests.length,
             passed,
@@ -865,9 +665,10 @@ class InteractionTester {
             warnings,
             errors,
             skipped,
-            passRate: tests.length > 0 ? Math.round(passed / (tests.length - skipped) * 100) || 0 : 0,
+            passRate: effectiveTests > 0 ? Math.round(passed / effectiveTests * 100) : 0,
             jsErrors: results.errors.length + (results.chaosResult?.jsErrors?.length || 0),
             consoleErrors: results.consoleErrors.length + (results.chaosResult?.consoleErrors?.length || 0),
+            groupSummaries,
             discovery: {
                 forms: results.discovery.forms.length,
                 navLinks: results.discovery.navLinks.length,
@@ -898,10 +699,10 @@ class InteractionTester {
             summary.verdictText = `${failed} test thất bại${results.chaosResult?.unresponsive ? ', trang bị treo sau chaos test' : ''}`;
         } else if (warnings > 0 || errors > 0) {
             summary.verdict = 'WARNING';
-            summary.verdictText = `Passed ${passed}/${tests.length - skipped} tests với ${warnings} cảnh báo`;
+            summary.verdictText = `Passed ${passed}/${effectiveTests} tests với ${warnings} cảnh báo`;
         } else {
             summary.verdict = 'PASS';
-            summary.verdictText = `Passed ${passed}/${tests.length - skipped} tests`;
+            summary.verdictText = `Passed ${passed}/${effectiveTests} tests`;
         }
 
         return summary;
