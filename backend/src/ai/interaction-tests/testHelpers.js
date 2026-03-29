@@ -52,7 +52,7 @@ async function takeScreenshot(page) {
 async function navigateBack(page, baseUrl) {
     try {
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(150);
     } catch {
         // ignore
     }

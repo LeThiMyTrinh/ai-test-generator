@@ -77,13 +77,13 @@ class FormBoundaryTests {
                 try {
                     alertTriggered = false;
                     await fillField(page, textField.selector, payload);
-                    await page.waitForTimeout(200);
+                    await page.waitForTimeout(100);
 
                     // Try submit
                     if (form.submitSelector) {
                         const btn = await page.$(form.submitSelector);
                         if (btn) await btn.click();
-                        await page.waitForTimeout(800);
+                        await page.waitForTimeout(100);
                     }
 
                     // Check if script was executed
@@ -137,7 +137,7 @@ class FormBoundaryTests {
                     if (form.submitSelector) {
                         const btn = await page.$(form.submitSelector);
                         if (btn) await btn.click();
-                        await page.waitForTimeout(800);
+                        await page.waitForTimeout(100);
                     }
 
                     // Check if HTML was rendered as actual elements
@@ -199,7 +199,7 @@ class FormBoundaryTests {
                     if (form.submitSelector) {
                         const btn = await page.$(form.submitSelector);
                         if (btn) await btn.click();
-                        await page.waitForTimeout(1000);
+                        await page.waitForTimeout(100);
                     }
 
                     // Check for server error indicators on page
@@ -248,7 +248,7 @@ class FormBoundaryTests {
             const longString = 'A'.repeat(10000);
             try {
                 await fillField(page, textField.selector, longString);
-                await page.waitForTimeout(300);
+                await page.waitForTimeout(100);
 
                 const actualLength = await page.evaluate((sel) => {
                     const inp = document.querySelector(sel);
@@ -304,7 +304,7 @@ class FormBoundaryTests {
             for (const input of specialInputs) {
                 try {
                     await fillField(page, textField.selector, input);
-                    await page.waitForTimeout(200);
+                    await page.waitForTimeout(100);
 
                     const pageOk = await page.evaluate(() => !!document.body).catch(() => false);
                     const jsErrors = await page.evaluate(() => {
@@ -349,7 +349,7 @@ class FormBoundaryTests {
             for (const input of unicodeInputs) {
                 try {
                     await fillField(page, textField.selector, input.value);
-                    await page.waitForTimeout(200);
+                    await page.waitForTimeout(100);
 
                     const displayedValue = await page.evaluate((sel) => {
                         const inp = document.querySelector(sel);
@@ -389,7 +389,7 @@ class FormBoundaryTests {
                 try {
                     await fillField(page, textField.selector, input);
                     await page.keyboard.press('Tab');
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     const hasError = await page.evaluate((sel) => {
                         const inp = document.querySelector(sel);
@@ -433,7 +433,7 @@ class FormBoundaryTests {
                 try {
                     await fillField(page, numberField.selector, tv.value);
                     await page.keyboard.press('Tab');
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     const fieldState = await page.evaluate((sel) => {
                         const inp = document.querySelector(sel);
@@ -514,7 +514,7 @@ class FormBoundaryTests {
                             inp.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                     }, textField.selector, pv.value);
-                    await page.waitForTimeout(200);
+                    await page.waitForTimeout(100);
 
                     const actualValue = await page.evaluate((sel) => {
                         const inp = document.querySelector(sel);
@@ -559,7 +559,7 @@ class FormBoundaryTests {
                 try {
                     await fillField(page, textField.selector, si.value);
                     await page.keyboard.press('Tab');
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     const actualValue = await page.evaluate((sel) => {
                         const inp = document.querySelector(sel);

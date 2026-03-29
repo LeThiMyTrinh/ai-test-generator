@@ -53,13 +53,13 @@ class URLCrawler {
             // Capture full screenshot
             const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
 
-            // Extract interactive elements from DOM
+            // Extract interactive elements from DOM (expanded for SmartTemplateEngine)
             const elements = await page.evaluate(() => {
                 const results = [];
-                const interactiveSel = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [onclick], [type="submit"]';
+                const interactiveSel = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="tab"], [role="tabpanel"], [role="menuitem"], [role="dialog"], [role="checkbox"], [role="radio"], [onclick], [type="submit"], img, table, [class*="modal"], [class*="tab"], [class*="accordion"]';
 
                 document.querySelectorAll(interactiveSel).forEach((el, idx) => {
-                    if (idx > 80) return; // cap
+                    if (idx > 100) return; // cap
                     const rect = el.getBoundingClientRect();
                     if (rect.width === 0 || rect.height === 0) return;
                     if (rect.top > 5000) return; // skip off-screen
@@ -97,7 +97,7 @@ class URLCrawler {
                 return results;
             });
 
-            // Page metadata
+            // Page metadata (expanded for SmartTemplateEngine)
             const metadata = await page.evaluate(() => ({
                 title: document.title,
                 url: window.location.href,
@@ -105,6 +105,15 @@ class URLCrawler {
                 inputs: document.querySelectorAll('input').length,
                 buttons: document.querySelectorAll('button, [type="submit"], [role="button"]').length,
                 links: document.querySelectorAll('a[href]').length,
+                checkboxes: document.querySelectorAll('input[type="checkbox"], [role="checkbox"]').length,
+                radios: document.querySelectorAll('input[type="radio"], [role="radio"]').length,
+                selects: document.querySelectorAll('select').length,
+                textareas: document.querySelectorAll('textarea').length,
+                fileInputs: document.querySelectorAll('input[type="file"]').length,
+                tables: document.querySelectorAll('table, [role="grid"]').length,
+                images: document.querySelectorAll('img').length,
+                modals: document.querySelectorAll('[role="dialog"], .modal, .dialog').length,
+                tabs: document.querySelectorAll('[role="tab"], [role="tablist"]').length,
                 headings: Array.from(document.querySelectorAll('h1,h2,h3')).map(h => h.innerText.trim().substring(0, 80))
             }));
 

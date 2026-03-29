@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import api, { apiUrl } from '../api/client'
 import {
-    ScanSearch, Loader2, Monitor, Tablet, Smartphone, ChevronDown, ChevronRight,
+    ScanSearch, Loader2, Monitor, Tablet, Smartphone, ChevronDown, ChevronRight, ChevronUp,
     Code2, Users, Copy, Upload, Play, Zap, Image, CheckCircle2, XCircle,
     AlertTriangle, Eye, Palette, Type, Layout, Search, FileText, Globe,
-    Shield, Gauge, MousePointer, RotateCcw, History, Download, Trash2, ExternalLink
+    Shield, Gauge, MousePointer, RotateCcw, History, Download, Trash2, ExternalLink, Filter
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -39,6 +39,29 @@ const TEST_STATUS_CONFIG = {
     error: { color: '#7c3aed', bg: '#f5f3ff', icon: '💥', label: 'Error' },
     skipped: { color: '#64748b', bg: '#f8fafc', icon: '⏭️', label: 'Skipped' },
 }
+
+const GROUP_META = {
+    navigation:       { icon: '🔗', name: 'Navigation & Routing' },
+    formValidation:   { icon: '📝', name: 'Form Validation' },
+    formBoundary:     { icon: '🔒', name: 'Form Boundary Testing' },
+    button:           { icon: '🔘', name: 'Button Interaction' },
+    modal:            { icon: '📦', name: 'Modal & Dialog' },
+    dropdown:         { icon: '📂', name: 'Dropdown' },
+    hoverTooltip:     { icon: '💬', name: 'Hover & Tooltip' },
+    scrollLazyLoad:   { icon: '📜', name: 'Scroll & Lazy Load' },
+    brokenResources:  { icon: '🔴', name: 'Broken Resources' },
+    tabAccordion:     { icon: '📑', name: 'Tab & Accordion' },
+    responsiveA11y:   { icon: '♿', name: 'Responsive & Accessibility' },
+    cookieConsent:    { icon: '🍪', name: 'Cookie Consent / Banner' },
+    loadingError:     { icon: '⏳', name: 'Loading & Error States' },
+    mediaVideo:       { icon: '🎬', name: 'Media & Video' },
+}
+
+const GROUP_ORDER = [
+    'navigation', 'formValidation', 'formBoundary', 'button', 'modal', 'dropdown',
+    'hoverTooltip', 'scrollLazyLoad', 'brokenResources', 'tabAccordion',
+    'responsiveA11y', 'cookieConsent', 'loadingError', 'mediaVideo',
+]
 
 // ========== MAIN COMPONENT ==========
 
@@ -762,7 +785,66 @@ function DesignCompareResult({ result }) {
 
 function InteractionResult({ result }) {
     const [expandedTest, setExpandedTest] = useState(null)
+    const [expandedGroups, setExpandedGroups] = useState(new Set())
+    const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'failed' | 'warning'
+    const [lightboxImg, setLightboxImg] = useState(null)
     const s = result.summary
+    const groups = result.testGroups || {}
+
+    // Close lightbox on ESC
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') setLightboxImg(null) }
+        if (lightboxImg) window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [lightboxImg])
+
+    const toggleGroup = (key) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev)
+            if (next.has(key)) next.delete(key)
+            else next.add(key)
+            return next
+        })
+    }
+
+    const expandAll = () => {
+        const allKeys = GROUP_ORDER.filter(k => groups[k] && !groups[k].skipped && (groups[k].tests?.length > 0))
+        setExpandedGroups(new Set(allKeys))
+    }
+    const collapseAll = () => setExpandedGroups(new Set())
+
+    // Compute group stats
+    const getGroupStats = (groupData) => {
+        const tests = groupData?.tests || []
+        const passed = tests.filter(t => t.status === 'passed').length
+        const failed = tests.filter(t => t.status === 'failed').length
+        const warnings = tests.filter(t => t.status === 'warning').length
+        const errors = tests.filter(t => t.status === 'error').length
+        const totalDuration = tests.reduce((sum, t) => sum + (t.duration_ms || 0), 0)
+        return { passed, failed, warnings, errors, total: tests.length, totalDuration }
+    }
+
+    // Filter tests inside a group
+    const filterTests = (tests) => {
+        if (statusFilter === 'all') return tests
+        if (statusFilter === 'failed') return tests.filter(t => t.status === 'failed' || t.status === 'error')
+        if (statusFilter === 'warning') return tests.filter(t => t.status === 'warning')
+        return tests
+    }
+
+    // Check if group should be visible based on filter
+    const isGroupVisible = (groupData) => {
+        if (!groupData) return false
+        if (groupData.skipped) return statusFilter === 'all'
+        if (statusFilter === 'all') return true
+        return filterTests(groupData.tests || []).length > 0
+    }
+
+    const hasGroups = GROUP_ORDER.some(k => groups[k])
+
+    // Count filters
+    const totalFailed = (result.tests || []).filter(t => t.status === 'failed' || t.status === 'error').length
+    const totalWarnings = (result.tests || []).filter(t => t.status === 'warning').length
 
     return (
         <div style={{ marginTop: 20 }}>
@@ -809,37 +891,228 @@ function InteractionResult({ result }) {
                 </div>
             )}
 
-            {/* Test list */}
-            {result.tests && result.tests.length > 0 && (
+            {/* Grouped Test Accordion */}
+            {hasGroups ? (
                 <div>
-                    <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>📋 Chi tiết test ({result.tests.length})</div>
-                    {result.tests.map((test, idx) => {
-                        const status = TEST_STATUS_CONFIG[test.status] || TEST_STATUS_CONFIG.error
-                        const isExpanded = expandedTest === idx
-                        return (
-                            <div key={idx} style={{ marginBottom: 4, background: '#fff', borderRadius: 8, border: `1px solid ${status.color}22`, overflow: 'hidden' }}>
-                                <div onClick={() => setExpandedTest(isExpanded ? null : idx)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', background: status.bg }}>
-                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                    <span style={{ fontSize: 14 }}>{status.icon}</span>
-                                    <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 4, background: '#e2e8f0', color: '#475569' }}>{test.type}</span>
-                                    <span style={{ fontSize: 13, flex: 1 }}>{test.name}</span>
-                                    <span style={{ fontSize: 11, color: '#94a3b8' }}>{test.duration_ms}ms</span>
-                                </div>
-                                {isExpanded && (
-                                    <div style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', fontSize: 13 }}>
-                                        <div style={{ color: '#475569', marginBottom: 8 }}>{test.details}</div>
-                                        {test.selector && <div style={{ fontSize: 12, color: '#94a3b8' }}>Selector: <code>{test.selector}</code></div>}
-                                        {test.screenshot && (
-                                            <div style={{ marginTop: 8, borderRadius: 6, overflow: 'hidden', border: '1px solid #e2e8f0', maxWidth: 600 }}>
-                                                <img src={test.screenshot} alt={test.name} style={{ width: '100%', display: 'block' }} />
-                                            </div>
+                    {/* Header + Filter bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>📋 Chi tiết test ({(result.tests || []).length})</div>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Filter size={13} color="#64748b" />
+                            <button onClick={() => setStatusFilter('all')}
+                                style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #cbd5e1', background: statusFilter === 'all' ? '#1e293b' : '#fff', color: statusFilter === 'all' ? '#fff' : '#475569', fontSize: 12, cursor: 'pointer' }}>
+                                Tất cả
+                            </button>
+                            {totalFailed > 0 && (
+                                <button onClick={() => setStatusFilter('failed')}
+                                    style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #fecaca', background: statusFilter === 'failed' ? '#dc2626' : '#fff', color: statusFilter === 'failed' ? '#fff' : '#dc2626', fontSize: 12, cursor: 'pointer' }}>
+                                    ❌ Failed ({totalFailed})
+                                </button>
+                            )}
+                            {totalWarnings > 0 && (
+                                <button onClick={() => setStatusFilter('warning')}
+                                    style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #fde68a', background: statusFilter === 'warning' ? '#ca8a04' : '#fff', color: statusFilter === 'warning' ? '#fff' : '#ca8a04', fontSize: 12, cursor: 'pointer' }}>
+                                    ⚠️ Warning ({totalWarnings})
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            <button onClick={expandAll} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11, cursor: 'pointer', color: '#475569' }}>Mở tất cả</button>
+                            <button onClick={collapseAll} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11, cursor: 'pointer', color: '#475569' }}>Thu gọn</button>
+                        </div>
+                    </div>
+
+                    {/* Group list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {GROUP_ORDER.map((groupKey, gIdx) => {
+                            const groupData = groups[groupKey]
+                            if (!groupData) return null
+                            if (!isGroupVisible(groupData)) return null
+
+                            const meta = GROUP_META[groupKey] || { icon: '📋', name: groupKey }
+                            const isSkipped = groupData.skipped
+                            const stats = getGroupStats(groupData)
+                            const isExpanded = expandedGroups.has(groupKey)
+                            const filteredTests = isSkipped ? [] : filterTests(groupData.tests || [])
+
+                            // Determine group border color
+                            const groupBorderColor = isSkipped ? '#e2e8f0'
+                                : stats.failed > 0 ? '#fecaca'
+                                : stats.warnings > 0 ? '#fde68a'
+                                : '#d1fae5'
+
+                            return (
+                                <div key={groupKey}
+                                    style={{
+                                        background: '#fff', borderRadius: 10,
+                                        border: `1px solid ${groupBorderColor}`,
+                                        overflow: 'hidden',
+                                        opacity: isSkipped ? 0.5 : 1,
+                                        transition: 'opacity 0.2s',
+                                    }}>
+                                    {/* Group Header */}
+                                    <div
+                                        onClick={() => !isSkipped && toggleGroup(groupKey)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                            padding: '10px 14px',
+                                            cursor: isSkipped ? 'default' : 'pointer',
+                                            background: isSkipped ? '#f8fafc' : isExpanded ? '#f0f9ff' : '#fafafa',
+                                            userSelect: 'none',
+                                            transition: 'background 0.15s',
+                                        }}>
+                                        {/* Expand icon */}
+                                        {isSkipped
+                                            ? <ChevronRight size={14} color="#94a3b8" />
+                                            : isExpanded
+                                                ? <ChevronDown size={14} color="#2563eb" />
+                                                : <ChevronRight size={14} color="#475569" />
+                                        }
+                                        {/* Group icon + name */}
+                                        <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                                        <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>
+                                            {meta.name}
+                                            <span style={{ fontWeight: 400, color: '#64748b', marginLeft: 6 }}>({stats.total} tests)</span>
+                                        </span>
+
+                                        {/* Skipped badge or mini summary */}
+                                        {isSkipped ? (
+                                            <span style={{
+                                                fontSize: 11, padding: '2px 10px', borderRadius: 12,
+                                                background: '#f1f5f9', color: '#94a3b8', fontWeight: 600,
+                                            }}>SKIPPED</span>
+                                        ) : (
+                                            <>
+                                                {/* Mini status pills */}
+                                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                                    {stats.passed > 0 && (
+                                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>
+                                                            ✅ {stats.passed}
+                                                        </span>
+                                                    )}
+                                                    {stats.failed > 0 && (
+                                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
+                                                            ❌ {stats.failed}
+                                                        </span>
+                                                    )}
+                                                    {stats.warnings > 0 && (
+                                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef9c3', color: '#a16207', fontWeight: 600 }}>
+                                                            ⚠️ {stats.warnings}
+                                                        </span>
+                                                    )}
+                                                    {stats.errors > 0 && (
+                                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#f3e8ff', color: '#7c3aed', fontWeight: 600 }}>
+                                                            💥 {stats.errors}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {/* Duration */}
+                                                <span style={{ fontSize: 11, color: '#94a3b8', minWidth: 50, textAlign: 'right' }}>
+                                                    {stats.totalDuration >= 1000
+                                                        ? `${(stats.totalDuration / 1000).toFixed(1)}s`
+                                                        : `${stats.totalDuration}ms`}
+                                                </span>
+                                            </>
                                         )}
                                     </div>
-                                )}
-                            </div>
-                        )
-                    })}
+
+                                    {/* Group Body — expanded tests */}
+                                    {isExpanded && !isSkipped && (
+                                        <div style={{
+                                            borderTop: '1px solid #e2e8f0',
+                                            padding: '6px 8px',
+                                            background: '#f8fafc',
+                                            animation: 'accordionSlideDown 0.2s ease-out',
+                                        }}>
+                                            {filteredTests.length === 0 ? (
+                                                <div style={{ textAlign: 'center', padding: 16, color: '#94a3b8', fontSize: 13 }}>
+                                                    Không có test nào khớp với bộ lọc
+                                                </div>
+                                            ) : (
+                                                filteredTests.map((test, idx) => {
+                                                    const testKey = `${groupKey}-${idx}`
+                                                    const status = TEST_STATUS_CONFIG[test.status] || TEST_STATUS_CONFIG.error
+                                                    const isTestExpanded = expandedTest === testKey
+                                                    return (
+                                                        <div key={testKey} style={{
+                                                            marginBottom: 3, background: '#fff', borderRadius: 8,
+                                                            border: `1px solid ${status.color}22`, overflow: 'hidden',
+                                                        }}>
+                                                            <div onClick={() => setExpandedTest(isTestExpanded ? null : testKey)}
+                                                                style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                                    padding: '7px 12px', cursor: 'pointer', background: status.bg,
+                                                                }}>
+                                                                {isTestExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                                <span style={{ fontSize: 13 }}>{status.icon}</span>
+                                                                <span style={{ fontSize: 13, flex: 1 }}>{test.name}</span>
+                                                                <span style={{ fontSize: 11, color: '#94a3b8' }}>{test.duration_ms}ms</span>
+                                                            </div>
+                                                            {isTestExpanded && (
+                                                                <div style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', fontSize: 13 }}>
+                                                                    <div style={{ color: '#475569', marginBottom: 8 }}>{test.details}</div>
+                                                                    {test.selector && <div style={{ fontSize: 12, color: '#94a3b8' }}>Selector: <code>{test.selector}</code></div>}
+                                                                    {test.screenshot && (
+                                                                        <div onClick={() => setLightboxImg(test.screenshot)}
+                                                                            style={{ marginTop: 8, borderRadius: 6, overflow: 'hidden', border: '1px solid #e2e8f0', maxWidth: 600, cursor: 'zoom-in' }}>
+                                                                            <img src={test.screenshot} alt={test.name} style={{ width: '100%', display: 'block' }} />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            ) : (
+                /* Fallback: flat list if no testGroups available (backward compatibility) */
+                result.tests && result.tests.length > 0 && (
+                    <div>
+                        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>📋 Chi tiết test ({result.tests.length})</div>
+                        {result.tests.map((test, idx) => {
+                            const status = TEST_STATUS_CONFIG[test.status] || TEST_STATUS_CONFIG.error
+                            const isExpanded = expandedTest === idx
+                            return (
+                                <div key={idx} style={{ marginBottom: 4, background: '#fff', borderRadius: 8, border: `1px solid ${status.color}22`, overflow: 'hidden' }}>
+                                    <div onClick={() => setExpandedTest(isExpanded ? null : idx)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', background: status.bg }}>
+                                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        <span style={{ fontSize: 14 }}>{status.icon}</span>
+                                        <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 4, background: '#e2e8f0', color: '#475569' }}>{test.type}</span>
+                                        <span style={{ fontSize: 13, flex: 1 }}>{test.name}</span>
+                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>{test.duration_ms}ms</span>
+                                    </div>
+                                    {isExpanded && (
+                                        <div style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', fontSize: 13 }}>
+                                            <div style={{ color: '#475569', marginBottom: 8 }}>{test.details}</div>
+                                            {test.selector && <div style={{ fontSize: 12, color: '#94a3b8' }}>Selector: <code>{test.selector}</code></div>}
+                                            {test.screenshot && (
+                                                <div onClick={() => setLightboxImg(test.screenshot)}
+                                                    style={{ marginTop: 8, borderRadius: 6, overflow: 'hidden', border: '1px solid #e2e8f0', maxWidth: 600, cursor: 'zoom-in' }}>
+                                                    <img src={test.screenshot} alt={test.name} style={{ width: '100%', display: 'block' }} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                )
+            )}
+
+            {/* Lightbox */}
+            {lightboxImg && (
+                <div className="lightbox" onClick={() => setLightboxImg(null)}>
+                    <button className="lightbox-close" onClick={() => setLightboxImg(null)}>✕</button>
+                    <img src={lightboxImg} alt="Screenshot" onClick={e => e.stopPropagation()} />
                 </div>
             )}
         </div>

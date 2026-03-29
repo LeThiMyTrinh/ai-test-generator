@@ -169,7 +169,7 @@ class TabAccordionTests {
             }, inactiveTab.target);
 
             await el.click();
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             // Check if tab became active
             const afterClick = await page.evaluate((sel, targetSel) => {
@@ -286,11 +286,11 @@ class TabAccordionTests {
             }
 
             await firstTab.focus();
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
 
             // Press ArrowRight
             await page.keyboard.press('ArrowRight');
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const afterRight = await page.evaluate(() => {
                 const active = document.activeElement;
@@ -304,7 +304,7 @@ class TabAccordionTests {
 
             // Press ArrowLeft
             await page.keyboard.press('ArrowLeft');
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const afterLeft = await page.evaluate(() => {
                 const active = document.activeElement;
@@ -349,7 +349,7 @@ class TabAccordionTests {
             }
 
             await header.click();
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             // Check if content expanded
             const afterClick = await page.evaluate((sel, targetSel, isDetails) => {
@@ -426,7 +426,7 @@ class TabAccordionTests {
             }
 
             await header.click();
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             const afterCollapse = await page.evaluate((sel, isDetails) => {
                 const h = document.querySelector(sel);

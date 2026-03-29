@@ -95,7 +95,7 @@ class LoadingErrorStateTests {
 
             // Simulate offline
             await page.context().setOffline(true);
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             // Try to navigate or trigger an API call
             let offlineHandled = false;
@@ -130,11 +130,11 @@ class LoadingErrorStateTests {
 
             // Restore online
             await page.context().setOffline(false);
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             // Try to recover
             await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const pageRecovered = await page.evaluate(() => !!document.body).catch(() => false);
 
@@ -168,7 +168,7 @@ class LoadingErrorStateTests {
                 // Navigation might fail entirely
             }
 
-            await page.waitForTimeout(800);
+            await page.waitForTimeout(200);
 
             const status = response ? response.status() : 0;
 
@@ -322,7 +322,7 @@ class LoadingErrorStateTests {
 
                 // Try to reload page under throttled conditions
                 await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-                await page.waitForTimeout(1000);
+                await page.waitForTimeout(100);
 
                 const loadTime = Date.now() - startTime;
 
@@ -374,7 +374,7 @@ class LoadingErrorStateTests {
 
             // Reload normally to restore state
             await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
         });
     }
 }

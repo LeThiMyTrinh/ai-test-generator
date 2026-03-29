@@ -59,7 +59,7 @@ function AppContent() {
   const titles = {
     dashboard: 'Dashboard', projects: 'Quản lý Dự án', suites: 'Quản lý Test Suite',
     editor: 'Tạo / Chỉnh sửa Test Case', monitor: 'Theo dõi Thực thi',
-    history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case bằng AI',
+    history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case tự động',
     'ui-checker': '🔍 Kiểm tra UI V3',
     'ui-checker-v2': '🔍 Kiểm tra UI V2',
     recorder: '🎬 Record & Replay',

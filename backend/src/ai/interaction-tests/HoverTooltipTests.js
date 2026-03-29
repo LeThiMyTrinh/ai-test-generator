@@ -120,7 +120,7 @@ class HoverTooltipTests {
 
             // Hover
             await el.hover();
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             // Check for tooltip appearance
             const afterHover = await page.evaluate(() => {
@@ -171,7 +171,7 @@ class HoverTooltipTests {
 
             // Hover to show
             await el.hover();
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const tooltipsBefore = await page.evaluate(() => {
                 const tips = document.querySelectorAll('.tooltip, .tippy-box, [role="tooltip"], .tooltip-inner');
@@ -185,7 +185,7 @@ class HoverTooltipTests {
 
             // Move mouse away
             await page.mouse.move(0, 0);
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             const tooltipsAfter = await page.evaluate(() => {
                 const tips = document.querySelectorAll('.tooltip, .tippy-box, [role="tooltip"], .tooltip-inner');
@@ -305,7 +305,7 @@ class HoverTooltipTests {
                     if (!el) continue;
 
                     await el.hover();
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     // Page should still be OK
                     const pageOk = await page.evaluate(() => !!document.body).catch(() => false);
@@ -338,7 +338,7 @@ class HoverTooltipTests {
 
             // Hover to show tooltip
             await el.hover();
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             const positionCheck = await page.evaluate(() => {
                 const tooltips = document.querySelectorAll('.tooltip, .tippy-box, [role="tooltip"], .tooltip-inner');
@@ -364,7 +364,7 @@ class HoverTooltipTests {
 
             // Move mouse away
             await page.mouse.move(0, 0);
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             if (!positionCheck.found) {
                 t.status = 'skipped';

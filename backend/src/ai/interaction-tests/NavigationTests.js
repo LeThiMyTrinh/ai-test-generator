@@ -61,7 +61,7 @@ class NavigationTests {
         const test = createTestResult('navigation', '1.1', `Internal navigation: "${link.text}"`);
         return runSafe(test, async (t) => {
             const response = await page.goto(link.href, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const status = response ? response.status() : 0;
 
@@ -89,12 +89,12 @@ class NavigationTests {
         return runSafe(test, async (t) => {
             // Navigate to a link first
             await page.goto(link.href, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
             const navigatedUrl = page.url();
 
             // Go back
             await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
             const backUrl = page.url();
 
             // Verify we went back (URL should be different from navigated page)
@@ -119,16 +119,16 @@ class NavigationTests {
         return runSafe(test, async (t) => {
             // Navigate to link
             await page.goto(link.href, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
             const targetUrl = page.url();
 
             // Go back
             await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 });
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             // Go forward
             await page.goForward({ waitUntil: 'domcontentloaded', timeout: 10000 });
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
             const forwardUrl = page.url();
 
             if (forwardUrl === targetUrl) {
@@ -181,7 +181,7 @@ class NavigationTests {
             for (const anchor of anchorLinks.slice(0, 3)) {
                 try {
                     await page.click(anchor.selector, { timeout: 3000 });
-                    await page.waitForTimeout(500);
+                    await page.waitForTimeout(150);
 
                     // Check if target element exists
                     const targetExists = await page.evaluate((hash) => {
@@ -337,7 +337,7 @@ class NavigationTests {
 
             try {
                 await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-                await page.waitForTimeout(500);
+                await page.waitForTimeout(150);
             } catch { /* timeout is OK */ }
 
             page.removeListener('response', redirectHandler);
@@ -368,7 +368,7 @@ class NavigationTests {
             const urlWithParams = url.toString();
 
             await page.goto(urlWithParams, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const finalUrl = page.url();
             const finalParams = new URL(finalUrl).searchParams;

@@ -90,7 +90,7 @@ class FormValidationTests {
             }
 
             await submitBtn.click();
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(100);
 
             // Check HTML5 validation
             const validation = await page.evaluate((formSel) => {
@@ -172,7 +172,7 @@ class FormValidationTests {
                 try {
                     const btn = await page.$(form.submitSelector);
                     if (btn) await btn.click();
-                    await page.waitForTimeout(800);
+                    await page.waitForTimeout(200);
 
                     const hasError = await page.evaluate((fieldSel) => {
                         const input = document.querySelector(fieldSel);
@@ -239,7 +239,7 @@ class FormValidationTests {
             // Submit
             const btn = await page.$(form.submitSelector);
             if (btn) await btn.click();
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(150);
 
             const afterUrl = page.url();
             const errorMsgs = await this._findErrorMessages(page);
@@ -291,13 +291,13 @@ class FormValidationTests {
                     await fillField(page, emailField.selector, badEmail);
                     // Trigger validation
                     await page.keyboard.press('Tab');
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     // Try submit if button exists
                     if (form.submitSelector) {
                         const btn = await page.$(form.submitSelector);
                         if (btn) await btn.click();
-                        await page.waitForTimeout(500);
+                        await page.waitForTimeout(150);
                     }
 
                     const hasError = await page.evaluate((sel) => {
@@ -344,12 +344,12 @@ class FormValidationTests {
                 try {
                     await fillField(page, phoneField.selector, badPhone);
                     await page.keyboard.press('Tab');
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     if (form.submitSelector) {
                         const btn = await page.$(form.submitSelector);
                         if (btn) await btn.click();
-                        await page.waitForTimeout(500);
+                        await page.waitForTimeout(150);
                     }
 
                     const hasError = await page.evaluate((sel) => {
@@ -398,10 +398,10 @@ class FormValidationTests {
             if (form.submitSelector) {
                 const btn = await page.$(form.submitSelector);
                 if (btn) await btn.click();
-                await page.waitForTimeout(1000);
+                await page.waitForTimeout(100);
             } else {
                 await page.keyboard.press('Tab');
-                await page.waitForTimeout(500);
+                await page.waitForTimeout(150);
             }
 
             const hasError = await page.evaluate((sel) => {
@@ -467,7 +467,7 @@ class FormValidationTests {
 
             // Click reset
             await page.click(hasResetBtn);
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             // Check if fields are empty
             const fieldsAfterReset = await page.evaluate((formSel) => {
@@ -632,13 +632,13 @@ class FormValidationTests {
                     const shortText = 'A'.repeat(Math.max(1, field.minLength - 2));
                     await fillField(page, field.selector, shortText);
                     await page.keyboard.press('Tab');
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(100);
 
                     // Try submit
                     if (form.submitSelector) {
                         const btn = await page.$(form.submitSelector);
                         if (btn) await btn.click();
-                        await page.waitForTimeout(500);
+                        await page.waitForTimeout(150);
                     }
 
                     const hasError = await page.evaluate((sel) => {
@@ -751,7 +751,7 @@ class FormValidationTests {
             if (wizard.hasNextBtn && wizard.nextBtnSelector) {
                 try {
                     await page.click(wizard.nextBtnSelector);
-                    await page.waitForTimeout(800);
+                    await page.waitForTimeout(200);
                     details.push('Next button click OK');
                 } catch {
                     details.push('Next button click failed');

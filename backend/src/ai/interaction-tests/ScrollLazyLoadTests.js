@@ -60,7 +60,7 @@ class ScrollLazyLoadTests {
             while (step < maxSteps) {
                 currentScroll += viewportHeight;
                 await page.evaluate((y) => window.scrollTo({ top: y, behavior: 'auto' }), currentScroll);
-                await page.waitForTimeout(300);
+                await page.waitForTimeout(100);
                 step++;
 
                 const scrollTop = await page.evaluate(() => window.scrollY);
@@ -68,7 +68,7 @@ class ScrollLazyLoadTests {
                 if (scrollTop + viewportHeight >= scrollHeight - 10) break;
             }
 
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             // Check page is still responsive
             const pageOk = await page.evaluate(() => {
@@ -91,7 +91,7 @@ class ScrollLazyLoadTests {
 
             // Scroll back to top
             await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
         });
     }
 
@@ -103,7 +103,7 @@ class ScrollLazyLoadTests {
         return runSafe(test, async (t) => {
             // Scroll to top first
             await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const imageAudit = await page.evaluate(() => {
                 const images = document.querySelectorAll('img');
@@ -167,7 +167,7 @@ class ScrollLazyLoadTests {
 
             // Scroll down
             await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight / 2, behavior: 'auto' }));
-            await page.waitForTimeout(800);
+            await page.waitForTimeout(200);
 
             // Look for back-to-top button
             const backToTop = await page.evaluate(() => {
@@ -202,7 +202,7 @@ class ScrollLazyLoadTests {
                 // Try clicking it
                 try {
                     await page.click(backToTop.selector);
-                    await page.waitForTimeout(800);
+                    await page.waitForTimeout(200);
 
                     const scrolledToTop = await page.evaluate(() => window.scrollY < 100);
                     if (scrolledToTop) {
@@ -228,7 +228,7 @@ class ScrollLazyLoadTests {
 
             // Scroll back to top
             await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
         });
     }
 
@@ -264,7 +264,7 @@ class ScrollLazyLoadTests {
 
             // Scroll down significantly
             await page.evaluate(() => window.scrollTo({ top: 500, behavior: 'auto' }));
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const headerAfterScroll = await page.evaluate((sel) => {
                 const h = document.querySelector(sel);
@@ -281,7 +281,7 @@ class ScrollLazyLoadTests {
 
             // Scroll back to top
             await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             if (!headerAfterScroll) {
                 t.status = 'warning';
@@ -322,7 +322,7 @@ class ScrollLazyLoadTests {
 
             // Scroll to bottom
             await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' }));
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(150);
 
             // Check for loading indicators
             const loadingDetected = await page.evaluate(() => {
@@ -336,7 +336,7 @@ class ScrollLazyLoadTests {
 
             // Wait for potential content load
             if (loadingDetected) {
-                await page.waitForTimeout(3000);
+                await page.waitForTimeout(200);
             }
 
             const after = await page.evaluate(() => {
@@ -363,7 +363,7 @@ class ScrollLazyLoadTests {
 
             // Scroll back to top
             await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
         });
     }
 
@@ -384,17 +384,17 @@ class ScrollLazyLoadTests {
             // Scroll down first
             const targetScroll = 400;
             await page.evaluate((y) => window.scrollTo({ top: y, behavior: 'auto' }), targetScroll);
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const scrollBefore = await page.evaluate(() => window.scrollY);
 
             // Navigate away
             await page.goto(internalLink.href, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             // Navigate back
             await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(100);
 
             const scrollAfter = await page.evaluate(() => window.scrollY);
             const tolerance = 100; // allow some tolerance
@@ -495,7 +495,7 @@ class ScrollLazyLoadTests {
 
             // Scroll back to top
             await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const details = [];
             if (parallaxCheck.parallaxElements.length > 0) {

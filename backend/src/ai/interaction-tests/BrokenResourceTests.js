@@ -32,7 +32,7 @@ class BrokenResourceTests {
         const test = createTestResult('broken_resources', '9.1', 'Broken images');
         return runSafe(test, async (t) => {
             // Wait for images to attempt loading
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(300);
 
             const imageCheck = await page.evaluate(() => {
                 const images = document.querySelectorAll('img');

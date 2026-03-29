@@ -113,8 +113,8 @@ class InteractionTester {
             });
 
             // Navigate
-            await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-            await page.waitForTimeout(1500);
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
             // Auto-login if needed
             if (loginEmail && loginPassword) {
@@ -122,8 +122,8 @@ class InteractionTester {
                 const loginSuccess = await autoLogin.attemptLogin(page, loginEmail, loginPassword);
                 if (loginSuccess) {
                     console.log('[InteractionTester] Auto-login successful');
-                    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-                    await page.waitForTimeout(2000);
+                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
                 }
             }
 
@@ -161,8 +161,8 @@ class InteractionTester {
             if (level === 'chaos' || level === 'full') {
                 console.log('[InteractionTester] Running chaos test...');
                 // Re-navigate to clean state
-                await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-                await page.waitForTimeout(1000);
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
                 results.chaosResult = await this._runChaosTest(page, maxActions);
             }
 
@@ -300,200 +300,111 @@ class InteractionTester {
     }
 
     /**
-     * Run smart interaction tests — 6 groups orchestration
+     * Run smart interaction tests — 14 groups orchestration
+     * Optimized: skip empty groups + parallel execution in batches
      */
     async _runSmartTests(page, discovery, baseUrl) {
         const allTests = [];
         const groupResults = {};
+        const context = page.context();
 
-        // Group 1: Navigation & Routing
-        try {
-            console.log('[InteractionTester] → Group 1: Navigation & Routing...');
-            const navTests = await this._navigationTests.run(page, discovery, baseUrl);
-            groupResults.navigation = { tests: navTests, count: navTests.length };
-            allTests.push(...navTests);
-            // Navigate back to base URL for next group
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 1 error:', err.message);
-            groupResults.navigation = { tests: [], error: err.message };
+        // Define all 14 groups with skip conditions
+        const groupDefs = [
+            // Batch 1: Form & Navigation (share page 1)
+            { key: 'navigation', name: 'Group 1: Navigation & Routing', runner: this._navigationTests, skip: discovery.navLinks.length === 0 },
+            { key: 'formValidation', name: 'Group 2: Form Validation', runner: this._formValidationTests, skip: discovery.forms.length === 0 },
+            { key: 'formBoundary', name: 'Group 3: Form Boundary Testing', runner: this._formBoundaryTests, skip: discovery.forms.length === 0 },
+            // Batch 2: UI Interaction (share page 2)
+            { key: 'button', name: 'Group 4: Button Interaction', runner: this._buttonTests, skip: discovery.buttons.length === 0 },
+            { key: 'modal', name: 'Group 5: Modal & Dialog', runner: this._modalTests, skip: discovery.modals.length === 0 },
+            { key: 'dropdown', name: 'Group 6: Dropdown', runner: this._dropdownTests, skip: discovery.dropdowns.length === 0 },
+            // Batch 3: UX (share page 3)
+            { key: 'hoverTooltip', name: 'Group 7: Hover & Tooltip', runner: this._hoverTooltipTests, skip: false },
+            { key: 'scrollLazyLoad', name: 'Group 8: Scroll & Lazy Load', runner: this._scrollLazyLoadTests, skip: false },
+            { key: 'brokenResources', name: 'Group 9: Broken Resources', runner: this._brokenResourceTests, skip: false },
+            { key: 'tabAccordion', name: 'Group 10: Tab & Accordion', runner: this._tabAccordionTests, skip: false },
+            // Batch 4: Advanced (share page 4)
+            { key: 'responsiveA11y', name: 'Group 11: Responsive & Accessibility', runner: this._responsiveA11yTests, skip: false },
+            { key: 'cookieConsent', name: 'Group 12: Cookie Consent / Banner', runner: this._cookieConsentTests, skip: false },
+            { key: 'loadingError', name: 'Group 13: Loading & Error States', runner: this._loadingErrorTests, skip: false },
+            { key: 'mediaVideo', name: 'Group 14: Media & Video', runner: this._mediaVideoTests, skip: false },
+        ];
+
+        // Split into 4 parallel batches
+        const batches = [
+            groupDefs.slice(0, 3),   // Batch 1: Groups 1-3
+            groupDefs.slice(3, 6),   // Batch 2: Groups 4-6
+            groupDefs.slice(6, 10),  // Batch 3: Groups 7-10
+            groupDefs.slice(10, 14), // Batch 4: Groups 11-14
+        ];
+
+        // Run a single batch sequentially on its own page
+        const runBatch = async (batch, batchIndex) => {
+            const batchResults = { tests: [], groups: {} };
+            // Filter out skipped groups
+            const activeGroups = batch.filter(g => !g.skip);
+            if (activeGroups.length === 0) {
+                // Mark all as skipped
+                for (const g of batch) {
+                    batchResults.groups[g.key] = { tests: [], count: 0, skipped: true };
+                }
+                return batchResults;
+            }
+
+            // Create a dedicated page for this batch
+            const batchPage = batchIndex === 0 ? page : await context.newPage();
+            try {
+                if (batchIndex !== 0) {
+                    await batchPage.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                    await batchPage.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+                }
+
+                for (let i = 0; i < batch.length; i++) {
+                    const g = batch[i];
+                    if (g.skip) {
+                        console.log(`[InteractionTester] → ${g.name} — SKIPPED (no elements)`);
+                        batchResults.groups[g.key] = { tests: [], count: 0, skipped: true };
+                        continue;
+                    }
+
+                    try {
+                        console.log(`[InteractionTester] → ${g.name}...`);
+                        const tests = await g.runner.run(batchPage, discovery, baseUrl);
+                        batchResults.groups[g.key] = { tests, count: tests.length };
+                        batchResults.tests.push(...tests);
+
+                        // Navigate back for next group (skip for last in batch)
+                        if (i < batch.length - 1 && batch.slice(i + 1).some(ng => !ng.skip)) {
+                            await batchPage.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+                            await batchPage.waitForTimeout(150);
+                        }
+                    } catch (err) {
+                        console.error(`[InteractionTester] ${g.name} error:`, err.message);
+                        batchResults.groups[g.key] = { tests: [], error: err.message };
+                    }
+                }
+            } finally {
+                // Close extra pages, keep the original
+                if (batchIndex !== 0) {
+                    await batchPage.close().catch(() => {});
+                }
+            }
+            return batchResults;
+        };
+
+        // Execute all 4 batches in parallel
+        console.log('[InteractionTester] Running 14 groups in 4 parallel batches...');
+        const batchPromises = batches.map((batch, idx) => runBatch(batch, idx));
+        const batchResults = await Promise.all(batchPromises);
+
+        // Merge results from all batches (maintain group order)
+        for (const br of batchResults) {
+            allTests.push(...br.tests);
+            Object.assign(groupResults, br.groups);
         }
 
-        // Group 2: Form Validation
-        try {
-            console.log('[InteractionTester] → Group 2: Form Validation...');
-            const formTests = await this._formValidationTests.run(page, discovery, baseUrl);
-            groupResults.formValidation = { tests: formTests, count: formTests.length };
-            allTests.push(...formTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 2 error:', err.message);
-            groupResults.formValidation = { tests: [], error: err.message };
-        }
-
-        // Group 3: Form Boundary Testing
-        try {
-            console.log('[InteractionTester] → Group 3: Form Boundary Testing...');
-            const boundaryTests = await this._formBoundaryTests.run(page, discovery, baseUrl);
-            groupResults.formBoundary = { tests: boundaryTests, count: boundaryTests.length };
-            allTests.push(...boundaryTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 3 error:', err.message);
-            groupResults.formBoundary = { tests: [], error: err.message };
-        }
-
-        // Group 4: Button Interaction
-        try {
-            console.log('[InteractionTester] → Group 4: Button Interaction...');
-            const btnTests = await this._buttonTests.run(page, discovery, baseUrl);
-            groupResults.button = { tests: btnTests, count: btnTests.length };
-            allTests.push(...btnTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 4 error:', err.message);
-            groupResults.button = { tests: [], error: err.message };
-        }
-
-        // Group 5: Modal & Dialog
-        try {
-            console.log('[InteractionTester] → Group 5: Modal & Dialog...');
-            const modalTests = await this._modalTests.run(page, discovery, baseUrl);
-            groupResults.modal = { tests: modalTests, count: modalTests.length };
-            allTests.push(...modalTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 5 error:', err.message);
-            groupResults.modal = { tests: [], error: err.message };
-        }
-
-        // Group 6: Dropdown
-        try {
-            console.log('[InteractionTester] → Group 6: Dropdown...');
-            const ddTests = await this._dropdownTests.run(page, discovery, baseUrl);
-            groupResults.dropdown = { tests: ddTests, count: ddTests.length };
-            allTests.push(...ddTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 6 error:', err.message);
-            groupResults.dropdown = { tests: [], error: err.message };
-        }
-
-        // ===== Phase 2: UX Groups =====
-
-        // Group 7: Hover & Tooltip
-        try {
-            console.log('[InteractionTester] → Group 7: Hover & Tooltip...');
-            const hoverTests = await this._hoverTooltipTests.run(page, discovery, baseUrl);
-            groupResults.hoverTooltip = { tests: hoverTests, count: hoverTests.length };
-            allTests.push(...hoverTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 7 error:', err.message);
-            groupResults.hoverTooltip = { tests: [], error: err.message };
-        }
-
-        // Group 8: Scroll & Lazy Load
-        try {
-            console.log('[InteractionTester] → Group 8: Scroll & Lazy Load...');
-            const scrollTests = await this._scrollLazyLoadTests.run(page, discovery, baseUrl);
-            groupResults.scrollLazyLoad = { tests: scrollTests, count: scrollTests.length };
-            allTests.push(...scrollTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 8 error:', err.message);
-            groupResults.scrollLazyLoad = { tests: [], error: err.message };
-        }
-
-        // Group 9: Broken Resources
-        try {
-            console.log('[InteractionTester] → Group 9: Broken Resources...');
-            const resourceTests = await this._brokenResourceTests.run(page, discovery, baseUrl);
-            groupResults.brokenResources = { tests: resourceTests, count: resourceTests.length };
-            allTests.push(...resourceTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 9 error:', err.message);
-            groupResults.brokenResources = { tests: [], error: err.message };
-        }
-
-        // Group 10: Tab & Accordion
-        try {
-            console.log('[InteractionTester] → Group 10: Tab & Accordion...');
-            const tabTests = await this._tabAccordionTests.run(page, discovery, baseUrl);
-            groupResults.tabAccordion = { tests: tabTests, count: tabTests.length };
-            allTests.push(...tabTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 10 error:', err.message);
-            groupResults.tabAccordion = { tests: [], error: err.message };
-        }
-
-        // ===== Phase 3: A11y + Responsive =====
-
-        // Group 11: Responsive Menu & Accessibility
-        try {
-            console.log('[InteractionTester] → Group 11: Responsive Menu & Accessibility...');
-            const a11yTests = await this._responsiveA11yTests.run(page, discovery, baseUrl);
-            groupResults.responsiveA11y = { tests: a11yTests, count: a11yTests.length };
-            allTests.push(...a11yTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 11 error:', err.message);
-            groupResults.responsiveA11y = { tests: [], error: err.message };
-        }
-
-        // ===== Phase 4: Advanced Groups =====
-
-        // Group 12: Cookie Consent / Banner
-        try {
-            console.log('[InteractionTester] → Group 12: Cookie Consent / Banner...');
-            const cookieTests = await this._cookieConsentTests.run(page, discovery, baseUrl);
-            groupResults.cookieConsent = { tests: cookieTests, count: cookieTests.length };
-            allTests.push(...cookieTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 12 error:', err.message);
-            groupResults.cookieConsent = { tests: [], error: err.message };
-        }
-
-        // Group 13: Loading & Error States
-        try {
-            console.log('[InteractionTester] → Group 13: Loading & Error States...');
-            const loadingTests = await this._loadingErrorTests.run(page, discovery, baseUrl);
-            groupResults.loadingError = { tests: loadingTests, count: loadingTests.length };
-            allTests.push(...loadingTests);
-            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-            await page.waitForTimeout(500);
-        } catch (err) {
-            console.error('[InteractionTester] Group 13 error:', err.message);
-            groupResults.loadingError = { tests: [], error: err.message };
-        }
-
-        // Group 14: Media & Video
-        try {
-            console.log('[InteractionTester] → Group 14: Media & Video...');
-            const mediaTests = await this._mediaVideoTests.run(page, discovery, baseUrl);
-            groupResults.mediaVideo = { tests: mediaTests, count: mediaTests.length };
-            allTests.push(...mediaTests);
-        } catch (err) {
-            console.error('[InteractionTester] Group 14 error:', err.message);
-            groupResults.mediaVideo = { tests: [], error: err.message };
-        }
-
-        console.log(`[InteractionTester] Smart tests complete: ${allTests.length} tests across 14 groups`);
+        const skippedCount = groupDefs.filter(g => g.skip).length;
+        console.log(`[InteractionTester] Smart tests complete: ${allTests.length} tests across 14 groups (${skippedCount} skipped)`);
         return { allTests, groupResults };
     }
 
@@ -605,7 +516,7 @@ class InteractionTester {
                 });
             }, maxActions);
 
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(500);
 
             const isResponsive = await Promise.race([
                 page.evaluate(() => document.title).then(() => true),

@@ -81,7 +81,7 @@ class ButtonTests {
             const beforeHTML = await page.evaluate(() => document.body.innerHTML.length);
 
             await btn.click({ timeout: 5000 });
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(100);
 
             const afterUrl = page.url();
             const afterHTML = await page.evaluate(() => document.body.innerHTML.length);
@@ -106,7 +106,7 @@ class ButtonTests {
             // Cleanup
             if (hasModal) {
                 await page.keyboard.press('Escape');
-                await page.waitForTimeout(300);
+                await page.waitForTimeout(100);
             }
             if (afterUrl !== beforeUrl) {
                 await navigateBack(page, baseUrl);
@@ -154,7 +154,7 @@ class ButtonTests {
             // Click rapidly twice
             await btn.click({ timeout: 3000 });
             await btn.click({ timeout: 3000 }).catch(() => {}); // may fail if button becomes disabled
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(500);
 
             page.removeListener('request', requestHandler);
 
@@ -258,7 +258,7 @@ class ButtonTests {
 
             // Click and immediately check for loading indicators
             await btn.click({ timeout: 3000 }).catch(() => {});
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const hasLoading = await page.evaluate(() => {
                 // Check for common loading indicators
@@ -295,7 +295,7 @@ class ButtonTests {
             }
 
             t.screenshot = await takeScreenshot(page);
-            await page.waitForTimeout(1000); // Wait for action to complete
+            await page.waitForTimeout(100); // Wait for action to complete
         });
     }
 
@@ -397,7 +397,7 @@ class ButtonTests {
 
             await btn.focus();
             await page.keyboard.press('Enter');
-            await page.waitForTimeout(800);
+            await page.waitForTimeout(100);
 
             const afterEnterUrl = page.url();
             const afterEnterHTML = await page.evaluate(() => document.body.innerHTML.length);
@@ -472,7 +472,7 @@ class ButtonTests {
 
             // Hover
             await btn.hover();
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const hoverStyles = await page.evaluate((sel) => {
                 const el = document.querySelector(sel);
@@ -483,7 +483,7 @@ class ButtonTests {
 
             // Focus
             await btn.focus();
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
 
             const focusStyles = await page.evaluate((sel) => {
                 const el = document.querySelector(sel);

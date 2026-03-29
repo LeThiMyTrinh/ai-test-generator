@@ -87,7 +87,7 @@ class DropdownTests {
             const trigger = await page.$(dd.selector);
             if (trigger) {
                 await trigger.click();
-                await page.waitForTimeout(500);
+                await page.waitForTimeout(150);
             }
         } catch { /* ignore */ }
     }
@@ -154,7 +154,7 @@ class DropdownTests {
             }
 
             await trigger.click();
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const isOpen = await this._isMenuVisible(page, dd);
             const items = await this._getMenuItems(page, dd);
@@ -187,7 +187,7 @@ class DropdownTests {
             await page.click('body', { position: { x: 10, y: 10 } }).catch(() => {
                 return page.mouse.click(10, 10);
             });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const isStillOpen = await this._isMenuVisible(page, dd);
             if (!isStillOpen) {
@@ -232,7 +232,7 @@ class DropdownTests {
                         }
                     }, firstItem.text.substring(0, 20));
                 }
-                await page.waitForTimeout(500);
+                await page.waitForTimeout(150);
 
                 const menuClosed = !(await this._isMenuVisible(page, dd));
                 t.status = 'passed';
@@ -261,7 +261,7 @@ class DropdownTests {
 
             // Press ArrowDown
             await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const focusedItem = await page.evaluate(() => {
                 const active = document.activeElement;
@@ -305,13 +305,13 @@ class DropdownTests {
         return runSafe(test, async (t) => {
             // ArrowDown first to have a starting position
             await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
             await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
 
             // Now ArrowUp
             await page.keyboard.press('ArrowUp');
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             const focusedItem = await page.evaluate(() => {
                 const active = document.activeElement;
@@ -340,7 +340,7 @@ class DropdownTests {
         return runSafe(test, async (t) => {
             // Navigate to an item first
             await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
 
             const focusedBefore = await page.evaluate(() => {
                 return document.activeElement?.textContent?.trim().substring(0, 40) || '';
@@ -348,7 +348,7 @@ class DropdownTests {
 
             // Press Enter
             await page.keyboard.press('Enter');
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const menuClosed = !(await this._isMenuVisible(page, dd));
 
@@ -378,7 +378,7 @@ class DropdownTests {
             }
 
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(150);
 
             const isStillOpen = await this._isMenuVisible(page, dd);
             if (!isStillOpen) {

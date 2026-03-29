@@ -97,7 +97,7 @@ class ModalTests {
         if (!isVisible) return false;
 
         await trigger.click();
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(100);
 
         return await this._isModalVisible(page, modal);
     }
@@ -136,12 +136,12 @@ class ModalTests {
      */
     async _closeModal(page) {
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(150);
         // Fallback: click close button
         const closeBtn = await page.$('.modal.show .close, .modal.show [data-dismiss="modal"], .modal.show [data-bs-dismiss="modal"], dialog[open] button[class*="close"]');
         if (closeBtn) {
             await closeBtn.click().catch(() => {});
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
         }
     }
 
@@ -177,7 +177,7 @@ class ModalTests {
             }
 
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             const isStillOpen = await this._isModalVisible(page, modal);
             if (!isStillOpen) {
@@ -232,7 +232,7 @@ class ModalTests {
             }
 
             await page.click(closeBtn);
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             const isStillOpen = await this._isModalVisible(page, modal);
             if (!isStillOpen) {
@@ -268,7 +268,7 @@ class ModalTests {
 
             // Click outside modal content (at edge of viewport)
             await page.mouse.click(10, 10);
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(150);
 
             const isStillOpen = await this._isModalVisible(page, modal);
             if (!isStillOpen) {
@@ -315,7 +315,7 @@ class ModalTests {
             for (let i = 0; i < 10; i++) {
                 await page.keyboard.press('Tab');
             }
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
 
             const focusLocation = await page.evaluate(() => {
                 const active = document.activeElement;
@@ -498,7 +498,7 @@ class ModalTests {
             if (nestedTrigger && nestedTrigger.selector) {
                 try {
                     await page.click(nestedTrigger.selector);
-                    await page.waitForTimeout(800);
+                    await page.waitForTimeout(100);
 
                     const openModals = await page.evaluate(() => {
                         return document.querySelectorAll('.modal.show, [role="dialog"]:not([aria-hidden="true"]), dialog[open]').length;
@@ -522,7 +522,7 @@ class ModalTests {
 
             // Cleanup
             await this._closeModal(page);
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
             await this._closeModal(page);
         });
     }
@@ -567,7 +567,7 @@ class ModalTests {
                 }
 
                 await this._closeModal(page);
-                await page.waitForTimeout(300);
+                await page.waitForTimeout(100);
             }
 
             if (!formModal) {

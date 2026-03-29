@@ -155,7 +155,7 @@ class CookieConsentTests {
             // Click accept
             try {
                 await page.click(banner.buttons.accept, { timeout: 3000 });
-                await page.waitForTimeout(800);
+                await page.waitForTimeout(200);
 
                 // Check if banner disappeared
                 const stillVisible = await page.evaluate((sel) => {
@@ -286,7 +286,7 @@ class CookieConsentTests {
 
             // Reload page and check if banner reappears
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(500);
 
             const bannerAfterReload = await page.evaluate((sel) => {
                 const el = document.querySelector(sel);

@@ -182,7 +182,7 @@ class ResponsiveAccessibilityTests {
             }
 
             await trigger.click();
-            await page.waitForTimeout(600);
+            await page.waitForTimeout(100);
 
             const isOpen = await this._isMenuOpen(page, hamburger);
 
@@ -231,7 +231,7 @@ class ResponsiveAccessibilityTests {
                 const trigger = await page.$(hamburger.selector).catch(() => null);
                 if (trigger) {
                     await trigger.click();
-                    await page.waitForTimeout(600);
+                    await page.waitForTimeout(100);
                 }
             }
 
@@ -246,7 +246,7 @@ class ResponsiveAccessibilityTests {
             const trigger = await page.$(hamburger.selector).catch(() => null);
             if (trigger) {
                 await trigger.click();
-                await page.waitForTimeout(600);
+                await page.waitForTimeout(100);
             }
 
             let isClosed = !(await this._isMenuOpen(page, hamburger));
@@ -256,7 +256,7 @@ class ResponsiveAccessibilityTests {
                 const closeBtn = await page.$('.offcanvas .btn-close, .mobile-menu .close, .nav-close, [data-bs-dismiss="offcanvas"]').catch(() => null);
                 if (closeBtn) {
                     await closeBtn.click();
-                    await page.waitForTimeout(500);
+                    await page.waitForTimeout(100);
                     isClosed = !(await this._isMenuOpen(page, hamburger));
                 }
             }
@@ -264,7 +264,7 @@ class ResponsiveAccessibilityTests {
             if (!isClosed) {
                 // Try ESC
                 await page.keyboard.press('Escape');
-                await page.waitForTimeout(500);
+                await page.waitForTimeout(100);
                 isClosed = !(await this._isMenuOpen(page, hamburger));
             }
 
@@ -294,7 +294,7 @@ class ResponsiveAccessibilityTests {
             const trigger = await page.$(hamburger.selector).catch(() => null);
             if (trigger) {
                 await trigger.click();
-                await page.waitForTimeout(600);
+                await page.waitForTimeout(100);
             }
 
             const isOpen = await this._isMenuOpen(page, hamburger);
@@ -335,7 +335,7 @@ class ResponsiveAccessibilityTests {
             if (overlayCheck.found) {
                 // Try clicking overlay to close
                 await page.mouse.click(10, 10);
-                await page.waitForTimeout(600);
+                await page.waitForTimeout(100);
                 const closedByOverlay = !(await this._isMenuOpen(page, hamburger));
 
                 t.status = 'passed';
@@ -347,11 +347,11 @@ class ResponsiveAccessibilityTests {
 
             // Ensure menu is closed for next tests
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
             if (await this._isMenuOpen(page, hamburger)) {
                 const tr = await page.$(hamburger.selector).catch(() => null);
                 if (tr) await tr.click().catch(() => {});
-                await page.waitForTimeout(300);
+                await page.waitForTimeout(100);
             }
         });
     }
@@ -367,13 +367,13 @@ class ResponsiveAccessibilityTests {
                 window.scrollTo({ top: 0 });
                 document.body.focus();
             });
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
 
             // Tab through first 15 interactive elements
             const focusOrder = [];
             for (let i = 0; i < 15; i++) {
                 await page.keyboard.press('Tab');
-                await page.waitForTimeout(150);
+                await page.waitForTimeout(100);
 
                 const focusedEl = await page.evaluate(() => {
                     const el = document.activeElement;
@@ -452,13 +452,13 @@ class ResponsiveAccessibilityTests {
                 window.scrollTo({ top: 0 });
                 document.body.focus();
             });
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(100);
 
             const focusResults = [];
 
             for (let i = 0; i < 8; i++) {
                 await page.keyboard.press('Tab');
-                await page.waitForTimeout(200);
+                await page.waitForTimeout(100);
 
                 const focusStyle = await page.evaluate(() => {
                     const el = document.activeElement;
