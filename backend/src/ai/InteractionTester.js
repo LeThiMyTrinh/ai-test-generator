@@ -1,28 +1,21 @@
 /**
  * InteractionTester - Auto-discover interactive elements and test them
- * Enhanced with 14 test groups (100 cases) — Phase 1 + Phase 2 + Phase 3 + Phase 4
+ * 14 test groups (57 cases) — theo PDF "Kiểm tra Unit Test"
  *
- * Phase 1 (Core):
- *   1. Navigation & Routing (9 cases)
- *   2. Form Validation (12 cases)
- *   3. Form Boundary Testing (10 cases)
- *   4. Button Interaction (8 cases)
- *   5. Modal & Dialog (10 cases)
- *   6. Dropdown (7 cases)
- *
- * Phase 2 (UX):
- *   7. Hover & Tooltip (5 cases)
- *   8. Scroll & Lazy Load (7 cases)
- *   9. Broken Resources (5 cases)
- *  10. Tab & Accordion (6 cases)
- *
- * Phase 3 (A11y + Responsive):
- *  11. Responsive Menu & Accessibility (9 cases)
- *
- * Phase 4 (Advanced):
- *  12. Cookie Consent / Banner (4 cases)
- *  13. Loading & Error States (5 cases)
- *  14. Media & Video (4 cases)
+ *  1. Header / Navigation (5 cases)
+ *  2. Button (5 cases)
+ *  3. Input Field (6 cases)
+ *  4. Form Validation (5 cases)
+ *  5. Image / Media (4 cases)
+ *  6. Content / Text (3 cases)
+ *  7. Checkbox (4 cases)
+ *  8. Radio Button (3 cases)
+ *  9. Dropdown / Combobox (5 cases)
+ * 10. List Box (3 cases)
+ * 11. Calendar / Date Picker (4 cases)
+ * 12. Link (4 cases)
+ * 13. Tab (3 cases)
+ * 14. Hover & Tooltip (3 cases)
  *
  * 3 Levels: Static Scan → Smart Interaction → Chaos Test
  * ZERO API dependency
@@ -32,51 +25,38 @@ const { chromium, devices } = require('playwright');
 const path = require('path');
 const AutoLogin = require('./AutoLogin');
 
-// Phase 1 Test Groups
+// 14 Test Groups — theo PDF
 const NavigationTests = require('./interaction-tests/NavigationTests');
-const FormValidationTests = require('./interaction-tests/FormValidationTests');
-const FormBoundaryTests = require('./interaction-tests/FormBoundaryTests');
 const ButtonTests = require('./interaction-tests/ButtonTests');
-const ModalTests = require('./interaction-tests/ModalTests');
+const InputFieldTests = require('./interaction-tests/InputFieldTests');
+const FormValidationTests = require('./interaction-tests/FormValidationTests');
+const ImageMediaTests = require('./interaction-tests/ImageMediaTests');
+const ContentTextTests = require('./interaction-tests/ContentTextTests');
+const CheckboxTests = require('./interaction-tests/CheckboxTests');
+const RadioButtonTests = require('./interaction-tests/RadioButtonTests');
 const DropdownTests = require('./interaction-tests/DropdownTests');
-
-// Phase 2 Test Groups
+const ListBoxTests = require('./interaction-tests/ListBoxTests');
+const CalendarTests = require('./interaction-tests/CalendarTests');
+const LinkTests = require('./interaction-tests/LinkTests');
+const TabTests = require('./interaction-tests/TabAccordionTests');
 const HoverTooltipTests = require('./interaction-tests/HoverTooltipTests');
-const ScrollLazyLoadTests = require('./interaction-tests/ScrollLazyLoadTests');
-const BrokenResourceTests = require('./interaction-tests/BrokenResourceTests');
-const TabAccordionTests = require('./interaction-tests/TabAccordionTests');
-
-// Phase 3 Test Groups
-const ResponsiveAccessibilityTests = require('./interaction-tests/ResponsiveAccessibilityTests');
-
-// Phase 4 Test Groups
-const CookieConsentTests = require('./interaction-tests/CookieConsentTests');
-const LoadingErrorStateTests = require('./interaction-tests/LoadingErrorStateTests');
-const MediaVideoTests = require('./interaction-tests/MediaVideoTests');
 
 class InteractionTester {
     constructor() {
-        // Phase 1 test group runners
         this._navigationTests = new NavigationTests();
-        this._formValidationTests = new FormValidationTests();
-        this._formBoundaryTests = new FormBoundaryTests();
         this._buttonTests = new ButtonTests();
-        this._modalTests = new ModalTests();
+        this._inputFieldTests = new InputFieldTests();
+        this._formValidationTests = new FormValidationTests();
+        this._imageMediaTests = new ImageMediaTests();
+        this._contentTextTests = new ContentTextTests();
+        this._checkboxTests = new CheckboxTests();
+        this._radioButtonTests = new RadioButtonTests();
         this._dropdownTests = new DropdownTests();
-
-        // Phase 2 test group runners
+        this._listBoxTests = new ListBoxTests();
+        this._calendarTests = new CalendarTests();
+        this._linkTests = new LinkTests();
+        this._tabTests = new TabTests();
         this._hoverTooltipTests = new HoverTooltipTests();
-        this._scrollLazyLoadTests = new ScrollLazyLoadTests();
-        this._brokenResourceTests = new BrokenResourceTests();
-        this._tabAccordionTests = new TabAccordionTests();
-
-        // Phase 3 test group runners
-        this._responsiveA11yTests = new ResponsiveAccessibilityTests();
-
-        // Phase 4 test group runners
-        this._cookieConsentTests = new CookieConsentTests();
-        this._loadingErrorTests = new LoadingErrorStateTests();
-        this._mediaVideoTests = new MediaVideoTests();
     }
 
     /**
@@ -149,7 +129,7 @@ class InteractionTester {
                 duration_ms: 0,
             };
 
-            // Step 2: Run smart interaction tests (10 groups)
+            // Step 2: Run smart interaction tests (14 groups)
             if (level === 'smart' || level === 'full') {
                 console.log('[InteractionTester] Running smart tests (14 groups)...');
                 const { allTests, groupResults } = await this._runSmartTests(page, discovery, url);
@@ -193,9 +173,16 @@ class InteractionTester {
                 forms: [],
                 navLinks: [],
                 buttons: [],
-                modals: [],
                 dropdowns: [],
                 inputs: [],
+                checkboxes: [],
+                radios: [],
+                listBoxes: [],
+                dateInputs: [],
+                links: [],
+                images: [],
+                tabs: [],
+                tooltips: [],
                 totalInteractive: 0,
             };
 
@@ -240,41 +227,27 @@ class InteractionTester {
                 });
             });
 
-            // Buttons (non-submit, non-nav)
+            // Buttons
             document.querySelectorAll('button:not([type="submit"]), [role="button"], .btn, .button').forEach(btn => {
                 const rect = btn.getBoundingClientRect();
                 const style = getComputedStyle(btn);
                 if (rect.width === 0 || rect.height === 0 || style.display === 'none') return;
-                // Skip if inside a form (handled by forms section)
                 if (btn.closest('form') && btn.type === 'submit') return;
-
                 discovery.buttons.push({
                     text: btn.textContent.trim().substring(0, 50),
                     id: btn.id || '',
-                    classes: btn.className.toString().substring(0, 80),
                     selector: btn.id ? `#${btn.id}` : (btn.textContent.trim() ? `button:has-text("${btn.textContent.trim().substring(0, 30)}")` : btn.tagName.toLowerCase()),
-                    hasClickHandler: !!btn.onclick,
-                    ariaExpanded: btn.getAttribute('aria-expanded'),
-                    dataToggle: btn.getAttribute('data-toggle') || btn.getAttribute('data-bs-toggle') || '',
                 });
             });
 
-            // Modal triggers
-            document.querySelectorAll('[data-toggle="modal"], [data-bs-toggle="modal"], [data-target], [data-bs-target]').forEach(trigger => {
-                const target = trigger.getAttribute('data-target') || trigger.getAttribute('data-bs-target') || '';
-                discovery.modals.push({
-                    triggerText: trigger.textContent.trim().substring(0, 50),
-                    triggerSelector: trigger.id ? `#${trigger.id}` : `[data-bs-target="${target}"]`,
-                    targetSelector: target,
-                });
-            });
-
-            // Dropdowns
-            document.querySelectorAll('[data-toggle="dropdown"], [data-bs-toggle="dropdown"], details > summary').forEach(dd => {
+            // Dropdowns (select + custom)
+            document.querySelectorAll('select, [data-toggle="dropdown"], [data-bs-toggle="dropdown"], details > summary').forEach(dd => {
+                const rect = dd.getBoundingClientRect();
+                if (rect.width === 0) return;
                 discovery.dropdowns.push({
                     text: dd.textContent.trim().substring(0, 50),
                     selector: dd.id ? `#${dd.id}` : dd.tagName.toLowerCase(),
-                    type: dd.tagName === 'SUMMARY' ? 'details' : 'bootstrap',
+                    type: dd.tagName === 'SELECT' ? 'native' : (dd.tagName === 'SUMMARY' ? 'details' : 'bootstrap'),
                 });
             });
 
@@ -290,10 +263,105 @@ class InteractionTester {
                 });
             });
 
+            // Checkboxes
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const rect = cb.getBoundingClientRect();
+                if (rect.width > 0 || getComputedStyle(cb).display !== 'none') {
+                    discovery.checkboxes.push({
+                        name: cb.name || '',
+                        id: cb.id || '',
+                        selector: cb.id ? `#${cb.id}` : `input[type="checkbox"][name="${cb.name}"]`,
+                    });
+                }
+            });
+
+            // Radio buttons
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                const rect = radio.getBoundingClientRect();
+                if (rect.width > 0 || getComputedStyle(radio).display !== 'none') {
+                    discovery.radios.push({
+                        name: radio.name || '',
+                        value: radio.value || '',
+                        selector: radio.id ? `#${radio.id}` : `input[type="radio"][name="${radio.name}"]`,
+                    });
+                }
+            });
+
+            // List boxes
+            document.querySelectorAll('select[size], select[multiple], [role="listbox"]').forEach(lb => {
+                const rect = lb.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.listBoxes.push({
+                        selector: lb.id ? `#${lb.id}` : (lb.name ? `select[name="${lb.name}"]` : '[role="listbox"]'),
+                        type: lb.tagName === 'SELECT' ? 'native' : 'custom',
+                    });
+                }
+            });
+
+            // Date inputs
+            document.querySelectorAll('input[type="date"], input[type="datetime-local"], input[type="month"], [class*="datepicker"], [class*="date-picker"]').forEach(input => {
+                const rect = input.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.dateInputs.push({
+                        type: input.type || 'text',
+                        selector: input.id ? `#${input.id}` : (input.name ? `input[name="${input.name}"]` : `input[type="${input.type}"]`),
+                    });
+                }
+            });
+
+            // All links
+            document.querySelectorAll('a[href]').forEach(a => {
+                const rect = a.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0 && !a.href.startsWith('javascript:')) {
+                    discovery.links.push({
+                        href: a.href,
+                        text: a.textContent.trim().substring(0, 50),
+                    });
+                }
+            });
+
+            // Images
+            document.querySelectorAll('img').forEach(img => {
+                const rect = img.getBoundingClientRect();
+                if (rect.width > 0 || rect.height > 0) {
+                    discovery.images.push({
+                        src: img.src.substring(0, 100),
+                        alt: img.alt || '',
+                        loaded: img.complete && img.naturalWidth > 0,
+                    });
+                }
+            });
+
+            // Tabs
+            document.querySelectorAll('[role="tab"], [data-bs-toggle="tab"], [data-toggle="tab"]').forEach(tab => {
+                const rect = tab.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.tabs.push({
+                        text: tab.textContent.trim().substring(0, 30),
+                        selector: tab.id ? `#${tab.id}` : '[role="tab"]',
+                    });
+                }
+            });
+
+            // Tooltips
+            document.querySelectorAll('[title], [data-bs-toggle="tooltip"], [data-tooltip], [data-tippy-content]').forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.tooltips.push({
+                        text: el.getAttribute('title') || el.getAttribute('data-tooltip') || '',
+                        selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
+                    });
+                }
+            });
+
             discovery.totalInteractive =
                 discovery.forms.length + discovery.navLinks.length +
-                discovery.buttons.length + discovery.modals.length +
-                discovery.dropdowns.length + discovery.inputs.length;
+                discovery.buttons.length + discovery.dropdowns.length +
+                discovery.inputs.length + discovery.checkboxes.length +
+                discovery.radios.length + discovery.listBoxes.length +
+                discovery.dateInputs.length + discovery.links.length +
+                discovery.images.length + discovery.tabs.length +
+                discovery.tooltips.length;
 
             return discovery;
         });
@@ -308,26 +376,26 @@ class InteractionTester {
         const groupResults = {};
         const context = page.context();
 
-        // Define all 14 groups with skip conditions
+        // Define all 14 groups with skip conditions — theo PDF order
         const groupDefs = [
-            // Batch 1: Form & Navigation (share page 1)
-            { key: 'navigation', name: 'Group 1: Navigation & Routing', runner: this._navigationTests, skip: discovery.navLinks.length === 0 },
-            { key: 'formValidation', name: 'Group 2: Form Validation', runner: this._formValidationTests, skip: discovery.forms.length === 0 },
-            { key: 'formBoundary', name: 'Group 3: Form Boundary Testing', runner: this._formBoundaryTests, skip: discovery.forms.length === 0 },
-            // Batch 2: UI Interaction (share page 2)
-            { key: 'button', name: 'Group 4: Button Interaction', runner: this._buttonTests, skip: discovery.buttons.length === 0 },
-            { key: 'modal', name: 'Group 5: Modal & Dialog', runner: this._modalTests, skip: discovery.modals.length === 0 },
-            { key: 'dropdown', name: 'Group 6: Dropdown', runner: this._dropdownTests, skip: discovery.dropdowns.length === 0 },
-            // Batch 3: UX (share page 3)
-            { key: 'hoverTooltip', name: 'Group 7: Hover & Tooltip', runner: this._hoverTooltipTests, skip: false },
-            { key: 'scrollLazyLoad', name: 'Group 8: Scroll & Lazy Load', runner: this._scrollLazyLoadTests, skip: false },
-            { key: 'brokenResources', name: 'Group 9: Broken Resources', runner: this._brokenResourceTests, skip: false },
-            { key: 'tabAccordion', name: 'Group 10: Tab & Accordion', runner: this._tabAccordionTests, skip: false },
-            // Batch 4: Advanced (share page 4)
-            { key: 'responsiveA11y', name: 'Group 11: Responsive & Accessibility', runner: this._responsiveA11yTests, skip: false },
-            { key: 'cookieConsent', name: 'Group 12: Cookie Consent / Banner', runner: this._cookieConsentTests, skip: false },
-            { key: 'loadingError', name: 'Group 13: Loading & Error States', runner: this._loadingErrorTests, skip: false },
-            { key: 'mediaVideo', name: 'Group 14: Media & Video', runner: this._mediaVideoTests, skip: false },
+            // Batch 1: Navigation, Button, Input (Groups 1-3)
+            { key: 'navigation', name: 'Group 1: Header / Navigation', runner: this._navigationTests, skip: discovery.navLinks.length === 0 },
+            { key: 'button', name: 'Group 2: Button', runner: this._buttonTests, skip: discovery.buttons.length === 0 },
+            { key: 'inputField', name: 'Group 3: Input Field', runner: this._inputFieldTests, skip: discovery.forms.length === 0 && discovery.inputs.length === 0 },
+            // Batch 2: Form, Image, Content (Groups 4-6)
+            { key: 'formValidation', name: 'Group 4: Form Validation', runner: this._formValidationTests, skip: discovery.forms.length === 0 },
+            { key: 'imageMedia', name: 'Group 5: Image / Media', runner: this._imageMediaTests, skip: discovery.images.length === 0 },
+            { key: 'contentText', name: 'Group 6: Content / Text', runner: this._contentTextTests, skip: false },
+            // Batch 3: Checkbox, Radio, Dropdown, ListBox (Groups 7-10)
+            { key: 'checkbox', name: 'Group 7: Checkbox', runner: this._checkboxTests, skip: discovery.checkboxes.length === 0 },
+            { key: 'radioButton', name: 'Group 8: Radio Button', runner: this._radioButtonTests, skip: discovery.radios.length === 0 },
+            { key: 'dropdown', name: 'Group 9: Dropdown', runner: this._dropdownTests, skip: discovery.dropdowns.length === 0 },
+            { key: 'listBox', name: 'Group 10: List Box', runner: this._listBoxTests, skip: discovery.listBoxes.length === 0 && discovery.dropdowns.length === 0 },
+            // Batch 4: Calendar, Link, Tab, Tooltip (Groups 11-14)
+            { key: 'calendar', name: 'Group 11: Calendar / Date Picker', runner: this._calendarTests, skip: discovery.dateInputs.length === 0 },
+            { key: 'link', name: 'Group 12: Link', runner: this._linkTests, skip: discovery.links.length === 0 },
+            { key: 'tab', name: 'Group 13: Tab', runner: this._tabTests, skip: discovery.tabs.length === 0 },
+            { key: 'hoverTooltip', name: 'Group 14: Hover & Tooltip', runner: this._hoverTooltipTests, skip: discovery.tooltips.length === 0 },
         ];
 
         // Split into 4 parallel batches
@@ -341,17 +409,14 @@ class InteractionTester {
         // Run a single batch sequentially on its own page
         const runBatch = async (batch, batchIndex) => {
             const batchResults = { tests: [], groups: {} };
-            // Filter out skipped groups
             const activeGroups = batch.filter(g => !g.skip);
             if (activeGroups.length === 0) {
-                // Mark all as skipped
                 for (const g of batch) {
                     batchResults.groups[g.key] = { tests: [], count: 0, skipped: true };
                 }
                 return batchResults;
             }
 
-            // Create a dedicated page for this batch
             const batchPage = batchIndex === 0 ? page : await context.newPage();
             try {
                 if (batchIndex !== 0) {
@@ -373,7 +438,6 @@ class InteractionTester {
                         batchResults.groups[g.key] = { tests, count: tests.length };
                         batchResults.tests.push(...tests);
 
-                        // Navigate back for next group (skip for last in batch)
                         if (i < batch.length - 1 && batch.slice(i + 1).some(ng => !ng.skip)) {
                             await batchPage.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
                             await batchPage.waitForTimeout(150);
@@ -384,7 +448,6 @@ class InteractionTester {
                     }
                 }
             } finally {
-                // Close extra pages, keep the original
                 if (batchIndex !== 0) {
                     await batchPage.close().catch(() => {});
                 }
@@ -397,7 +460,7 @@ class InteractionTester {
         const batchPromises = batches.map((batch, idx) => runBatch(batch, idx));
         const batchResults = await Promise.all(batchPromises);
 
-        // Merge results from all batches (maintain group order)
+        // Merge results from all batches
         for (const br of batchResults) {
             allTests.push(...br.tests);
             Object.assign(groupResults, br.groups);
@@ -435,7 +498,6 @@ class InteractionTester {
         });
 
         try {
-            // Inject and run chaos test
             await page.evaluate((max) => {
                 return new Promise((resolve) => {
                     let actionCount = 0;
@@ -542,7 +604,7 @@ class InteractionTester {
     }
 
     /**
-     * Generate test summary — enhanced for grouped tests
+     * Generate test summary
      */
     _generateSummary(results) {
         const tests = results.tests || [];
@@ -584,8 +646,15 @@ class InteractionTester {
                 forms: results.discovery.forms.length,
                 navLinks: results.discovery.navLinks.length,
                 buttons: results.discovery.buttons.length,
-                modals: results.discovery.modals.length,
                 dropdowns: results.discovery.dropdowns.length,
+                checkboxes: results.discovery.checkboxes.length,
+                radios: results.discovery.radios.length,
+                listBoxes: results.discovery.listBoxes.length,
+                dateInputs: results.discovery.dateInputs.length,
+                links: results.discovery.links.length,
+                images: results.discovery.images.length,
+                tabs: results.discovery.tabs.length,
+                tooltips: results.discovery.tooltips.length,
                 totalInteractive: results.discovery.totalInteractive,
             },
             chaosTest: results.chaosResult ? {

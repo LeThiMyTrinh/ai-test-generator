@@ -78,10 +78,10 @@ function stripAndSaveScreenshots(result, historyId, type) {
         if (result.finalScreenshot) {
             screenshotMap.final = saveScreenshot(result.finalScreenshot, historyId, 'final');
         }
-        // Strip test screenshots — keep only first 5
+        // Strip test screenshots — save all (1 per test case)
         if (result.tests) {
             result.tests.forEach((t, i) => {
-                if (t.screenshot && i < 5) {
+                if (t.screenshot) {
                     screenshotMap[`test_${i}`] = saveScreenshot(t.screenshot, historyId, `test_${i}`);
                 }
                 delete t.screenshot; // remove from DB doc

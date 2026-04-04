@@ -1,436 +1,257 @@
 /**
- * Group 6: Dropdown Tests (7 cases)
- * 6.1 Click open
- * 6.2 Click outside close
- * 6.3 Select option
- * 6.4 Keyboard Arrow Down
- * 6.5 Keyboard Arrow Up
- * 6.6 Keyboard Enter select
- * 6.7 ESC close
+ * Group 9: Dropdown / Combobox / Pulldown (5 cases) — theo PDF
+ * TC_DD_01 Dropdown hiển thị
+ * TC_DD_02 Mở dropdown → hiển thị list
+ * TC_DD_03 Chọn option → hiển thị option
+ * TC_DD_04 Scroll list → scroll hoạt động
+ * TC_DD_05 Default value → hiển thị default
  */
 
-const { createTestResult, runSafe, takeScreenshot } = require('./testHelpers');
+const { createTestResult, runSafe, takeScreenshot, navigateBack } = require('./testHelpers');
 
 class DropdownTests {
-    /**
-     * Run all dropdown tests
-     */
     async run(page, discovery, baseUrl) {
         const results = [];
-        const dropdowns = discovery.dropdowns.slice(0, 5);
 
-        if (dropdowns.length === 0) {
-            // Also check for native <select> elements
-            results.push(await this._testNativeSelects(page));
-            if (results[0].status === 'skipped') {
-                results[0].details = 'Không tìm thấy dropdowns hoặc select trên trang';
-            }
-            return results;
-        }
+        results.push(await this._testDropdownVisible(page, discovery));
+        results.push(await this._testOpenDropdown(page, discovery));
+        results.push(await this._testSelectOption(page, discovery, baseUrl));
+        results.push(await this._testScrollList(page, discovery));
+        results.push(await this._testDefaultValue(page, discovery));
 
-        for (const dd of dropdowns) {
-            const ddResults = await this._testDropdownFull(page, dd);
-            results.push(...ddResults);
-        }
-
-        return results;
+        return results.filter(Boolean);
     }
 
-    /**
-     * Run all 7 tests for a single dropdown
-     */
-    async _testDropdownFull(page, dd) {
-        const results = [];
-        const label = dd.text.substring(0, 25);
-
-        // 6.1: Click open
-        const openResult = await this._testClickOpen(page, dd, label);
-        results.push(openResult);
-
-        if (openResult.status !== 'passed') {
-            return results;
-        }
-
-        // 6.3: Select option (while menu is open)
-        results.push(await this._testSelectOption(page, dd, label));
-
-        // 6.1 again: Re-open for remaining tests
-        await this._openDropdown(page, dd);
-
-        // 6.2: Click outside close
-        results.push(await this._testClickOutside(page, dd, label));
-
-        // Re-open for keyboard tests
-        await this._openDropdown(page, dd);
-
-        // 6.4: Arrow Down
-        results.push(await this._testArrowDown(page, dd, label));
-
-        // 6.5: Arrow Up
-        results.push(await this._testArrowUp(page, dd, label));
-
-        // 6.6: Enter select
-        results.push(await this._testEnterSelect(page, dd, label));
-
-        // 6.7: ESC close
-        await this._openDropdown(page, dd);
-        results.push(await this._testESCClose(page, dd, label));
-
-        return results;
-    }
-
-    /**
-     * Open dropdown
-     */
-    async _openDropdown(page, dd) {
-        try {
-            const trigger = await page.$(dd.selector);
-            if (trigger) {
-                await trigger.click();
-                await page.waitForTimeout(150);
-            }
-        } catch { /* ignore */ }
-    }
-
-    /**
-     * Check if dropdown menu is visible
-     */
-    async _isMenuVisible(page, dd) {
-        return page.evaluate((ddType) => {
-            if (ddType === 'details') {
-                const details = document.querySelector('details[open]');
-                return !!details;
-            }
-            const menu = document.querySelector('.dropdown-menu.show, .dropdown-menu[style*="display: block"], [role="menu"]:not([aria-hidden="true"]), [role="listbox"]:not([aria-hidden="true"])');
-            return !!menu;
-        }, dd.type);
-    }
-
-    /**
-     * Get dropdown menu items
-     */
-    async _getMenuItems(page, dd) {
-        return page.evaluate((ddType) => {
-            let items = [];
-            if (ddType === 'details') {
-                const details = document.querySelector('details[open]');
-                if (details) {
-                    details.querySelectorAll('a, button, li').forEach(item => {
-                        items.push({
-                            text: item.textContent.trim().substring(0, 40),
-                            selector: item.id ? `#${item.id}` : null,
-                        });
-                    });
-                }
-            } else {
-                const menu = document.querySelector('.dropdown-menu.show, [role="menu"], [role="listbox"]');
-                if (menu) {
-                    menu.querySelectorAll('.dropdown-item, a, button, [role="menuitem"], [role="option"], li').forEach(item => {
-                        const rect = item.getBoundingClientRect();
-                        if (rect.width > 0) {
-                            items.push({
-                                text: item.textContent.trim().substring(0, 40),
-                                selector: item.id ? `#${item.id}` : null,
-                            });
-                        }
-                    });
-                }
-            }
-            return items.slice(0, 10);
-        }, dd.type);
-    }
-
-    /**
-     * 6.1: Click open
-     */
-    async _testClickOpen(page, dd, label) {
-        const test = createTestResult('dropdown', '6.1', `Dropdown open: "${label}"`);
+    /** TC_DD_01: Dropdown hiển thị */
+    async _testDropdownVisible(page, discovery) {
+        const test = createTestResult('dropdown', 'TC_DD_01', 'Dropdown hiển thị');
         return runSafe(test, async (t) => {
-            const trigger = await page.$(dd.selector);
-            if (!trigger) {
-                t.status = 'skipped';
-                t.details = 'Dropdown trigger không tìm thấy';
-                return;
-            }
-
-            await trigger.click();
-            await page.waitForTimeout(150);
-
-            const isOpen = await this._isMenuVisible(page, dd);
-            const items = await this._getMenuItems(page, dd);
-
-            if (isOpen) {
-                t.status = 'passed';
-                t.details = `Dropdown mở thành công. ${items.length} items: ${items.slice(0, 3).map(i => `"${i.text}"`).join(', ')}`;
-                t.screenshot = await takeScreenshot(page);
-            } else {
-                t.status = 'failed';
-                t.details = 'Click trigger nhưng menu không xuất hiện';
-            }
-        });
-    }
-
-    /**
-     * 6.2: Click outside close
-     */
-    async _testClickOutside(page, dd, label) {
-        const test = createTestResult('dropdown', '6.2', `Dropdown click outside: "${label}"`);
-        return runSafe(test, async (t) => {
-            const wasOpen = await this._isMenuVisible(page, dd);
-            if (!wasOpen) {
-                t.status = 'skipped';
-                t.details = 'Menu không mở';
-                return;
-            }
-
-            // Click outside
-            await page.click('body', { position: { x: 10, y: 10 } }).catch(() => {
-                return page.mouse.click(10, 10);
+            const info = await page.evaluate(() => {
+                const selects = document.querySelectorAll('select');
+                const customDDs = document.querySelectorAll('[data-bs-toggle="dropdown"], [data-toggle="dropdown"], details > summary, [role="listbox"], [role="combobox"]');
+                let visibleSelects = 0;
+                let visibleCustom = 0;
+                selects.forEach(s => {
+                    const rect = s.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0 && getComputedStyle(s).display !== 'none') visibleSelects++;
+                });
+                customDDs.forEach(d => {
+                    const rect = d.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) visibleCustom++;
+                });
+                return { selects: selects.length, visibleSelects, customDDs: customDDs.length, visibleCustom };
             });
-            await page.waitForTimeout(150);
 
-            const isStillOpen = await this._isMenuVisible(page, dd);
-            if (!isStillOpen) {
+            const total = info.visibleSelects + info.visibleCustom;
+            if (total > 0) {
                 t.status = 'passed';
-                t.details = 'Click outside đóng dropdown thành công ✓';
-            } else {
+                t.details = `${total} dropdown hiển thị (${info.visibleSelects} native select, ${info.visibleCustom} custom)`;
+            } else if (info.selects + info.customDDs > 0) {
                 t.status = 'failed';
-                t.details = 'Dropdown không đóng khi click outside';
-            }
-        });
-    }
-
-    /**
-     * 6.3: Select option
-     */
-    async _testSelectOption(page, dd, label) {
-        const test = createTestResult('dropdown', '6.3', `Dropdown select option: "${label}"`);
-        return runSafe(test, async (t) => {
-            const items = await this._getMenuItems(page, dd);
-            if (items.length === 0) {
+                t.details = 'Có dropdown nhưng không hiển thị';
+            } else {
                 t.status = 'warning';
-                t.details = 'Không tìm thấy menu items';
-                return;
+                t.details = 'Không tìm thấy dropdown trên trang';
             }
-
-            // Click first option
-            const firstItem = items[0];
-            try {
-                if (firstItem.selector) {
-                    await page.click(firstItem.selector);
-                } else {
-                    // Try clicking by text
-                    await page.evaluate((text) => {
-                        const menu = document.querySelector('.dropdown-menu.show, [role="menu"], [role="listbox"], details[open]');
-                        if (!menu) return;
-                        const items = menu.querySelectorAll('.dropdown-item, a, button, [role="menuitem"], [role="option"], li');
-                        for (const item of items) {
-                            if (item.textContent.trim().startsWith(text)) {
-                                item.click();
-                                return;
-                            }
-                        }
-                    }, firstItem.text.substring(0, 20));
-                }
-                await page.waitForTimeout(150);
-
-                const menuClosed = !(await this._isMenuVisible(page, dd));
-                t.status = 'passed';
-                t.details = `Selected "${firstItem.text}". Menu ${menuClosed ? 'đóng sau select ✓' : 'vẫn mở (có thể multi-select)'}`;
-            } catch (err) {
-                t.status = 'warning';
-                t.details = `Không click được option: ${err.message.substring(0, 100)}`;
-            }
-
             t.screenshot = await takeScreenshot(page);
         });
     }
 
-    /**
-     * 6.4: Keyboard Arrow Down
-     */
-    async _testArrowDown(page, dd, label) {
-        const test = createTestResult('dropdown', '6.4', `Dropdown Arrow Down: "${label}"`);
+    /** TC_DD_02: Mở dropdown → hiển thị list */
+    async _testOpenDropdown(page, discovery) {
+        const test = createTestResult('dropdown', 'TC_DD_02', 'Mở dropdown');
         return runSafe(test, async (t) => {
-            const isOpen = await this._isMenuVisible(page, dd);
-            if (!isOpen) {
-                t.status = 'skipped';
-                t.details = 'Menu không mở';
-                return;
-            }
-
-            // Press ArrowDown
-            await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(100);
-
-            const focusedItem = await page.evaluate(() => {
-                const active = document.activeElement;
-                if (!active) return null;
+            // Thử native select trước
+            const selectInfo = await page.evaluate(() => {
+                const select = document.querySelector('select');
+                if (!select || select.getBoundingClientRect().width === 0) return null;
                 return {
-                    tag: active.tagName,
-                    text: active.textContent?.trim().substring(0, 40),
-                    isinMenu: !!active.closest('.dropdown-menu, [role="menu"], [role="listbox"], details'),
-                    hasActiveClass: active.classList.contains('active') || active.classList.contains('focused') || active.getAttribute('aria-selected') === 'true',
+                    selector: select.id ? `#${select.id}` : (select.name ? `select[name="${select.name}"]` : 'select'),
+                    optionCount: select.options.length,
                 };
             });
 
-            if (focusedItem && focusedItem.isinMenu) {
-                t.status = 'passed';
-                t.details = `ArrowDown: focus di chuyển tới "${focusedItem.text}" ✓`;
-            } else {
-                // Also check for highlighted/active item via CSS
-                const hasHighlight = await page.evaluate(() => {
-                    const menu = document.querySelector('.dropdown-menu.show, [role="menu"], [role="listbox"]');
-                    if (!menu) return false;
-                    const active = menu.querySelector('.active, .highlighted, [aria-selected="true"], :focus');
-                    return !!active;
-                });
+            if (selectInfo) {
+                // Native select - click to focus
+                await page.click(selectInfo.selector, { timeout: 3000 }).catch(() => {});
+                await page.waitForTimeout(300);
 
-                if (hasHighlight) {
+                if (selectInfo.optionCount > 0) {
                     t.status = 'passed';
-                    t.details = 'ArrowDown: có item highlighted trong menu ✓';
+                    t.details = `Mở dropdown thành công (${selectInfo.optionCount} options)`;
+                } else {
+                    t.status = 'failed';
+                    t.details = 'Dropdown không có options';
+                }
+                t.screenshot = await takeScreenshot(page);
+                return;
+            }
+
+            // Thử custom dropdown (Bootstrap, details/summary)
+            if (discovery.dropdowns.length > 0) {
+                const dd = discovery.dropdowns[0];
+                await page.click(dd.selector, { timeout: 3000 }).catch(() => {});
+                await page.waitForTimeout(300);
+
+                const isOpen = await page.evaluate((sel) => {
+                    const trigger = document.querySelector(sel);
+                    if (!trigger) return false;
+                    // Check Bootstrap dropdown menu
+                    const menu = trigger.nextElementSibling || document.querySelector('.dropdown-menu.show');
+                    if (menu && menu.classList.contains('show')) return true;
+                    // Check details
+                    const details = trigger.closest('details');
+                    if (details && details.open) return true;
+                    // Check aria-expanded
+                    if (trigger.getAttribute('aria-expanded') === 'true') return true;
+                    return false;
+                }, dd.selector);
+
+                if (isOpen) {
+                    t.status = 'passed';
+                    t.details = `Mở dropdown "${dd.text}" thành công`;
                 } else {
                     t.status = 'warning';
-                    t.details = 'ArrowDown: không phát hiện focus/highlight change trong menu';
+                    t.details = `Click dropdown "${dd.text}" nhưng không xác nhận được menu mở`;
                 }
-            }
-        });
-    }
-
-    /**
-     * 6.5: Keyboard Arrow Up
-     */
-    async _testArrowUp(page, dd, label) {
-        const test = createTestResult('dropdown', '6.5', `Dropdown Arrow Up: "${label}"`);
-        return runSafe(test, async (t) => {
-            // ArrowDown first to have a starting position
-            await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(100);
-            await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(100);
-
-            // Now ArrowUp
-            await page.keyboard.press('ArrowUp');
-            await page.waitForTimeout(100);
-
-            const focusedItem = await page.evaluate(() => {
-                const active = document.activeElement;
-                if (!active) return null;
-                return {
-                    text: active.textContent?.trim().substring(0, 40),
-                    inMenu: !!active.closest('.dropdown-menu, [role="menu"], [role="listbox"], details'),
-                };
-            });
-
-            if (focusedItem && focusedItem.inMenu) {
-                t.status = 'passed';
-                t.details = `ArrowUp: focus di chuyển lên "${focusedItem.text}" ✓`;
+                // Đóng lại
+                await page.click('body', { position: { x: 0, y: 0 } }).catch(() => {});
             } else {
                 t.status = 'warning';
-                t.details = 'ArrowUp: không phát hiện focus change rõ ràng';
+                t.details = 'Không tìm thấy dropdown để test';
             }
-        });
-    }
-
-    /**
-     * 6.6: Enter select
-     */
-    async _testEnterSelect(page, dd, label) {
-        const test = createTestResult('dropdown', '6.6', `Dropdown Enter select: "${label}"`);
-        return runSafe(test, async (t) => {
-            // Navigate to an item first
-            await page.keyboard.press('ArrowDown');
-            await page.waitForTimeout(100);
-
-            const focusedBefore = await page.evaluate(() => {
-                return document.activeElement?.textContent?.trim().substring(0, 40) || '';
-            });
-
-            // Press Enter
-            await page.keyboard.press('Enter');
-            await page.waitForTimeout(150);
-
-            const menuClosed = !(await this._isMenuVisible(page, dd));
-
-            if (menuClosed) {
-                t.status = 'passed';
-                t.details = `Enter selected "${focusedBefore}" và đóng menu ✓`;
-            } else {
-                t.status = 'warning';
-                t.details = `Enter pressed (focused: "${focusedBefore}") nhưng menu vẫn mở`;
-            }
-
             t.screenshot = await takeScreenshot(page);
         });
     }
 
-    /**
-     * 6.7: ESC close
-     */
-    async _testESCClose(page, dd, label) {
-        const test = createTestResult('dropdown', '6.7', `Dropdown ESC close: "${label}"`);
+    /** TC_DD_03: Chọn option → hiển thị option đã chọn */
+    async _testSelectOption(page, discovery, baseUrl) {
+        const test = createTestResult('dropdown', 'TC_DD_03', 'Chọn option');
         return runSafe(test, async (t) => {
-            const wasOpen = await this._isMenuVisible(page, dd);
-            if (!wasOpen) {
-                t.status = 'skipped';
-                t.details = 'Menu không mở';
-                return;
-            }
+            const selectResult = await page.evaluate(() => {
+                const select = document.querySelector('select');
+                if (!select || select.options.length < 2) return null;
+                const selector = select.id ? `#${select.id}` : (select.name ? `select[name="${select.name}"]` : 'select');
+                const optionValue = select.options[1].value;
+                const optionText = select.options[1].text;
+                return { selector, optionValue, optionText };
+            });
 
-            await page.keyboard.press('Escape');
-            await page.waitForTimeout(150);
+            if (selectResult) {
+                await page.selectOption(selectResult.selector, selectResult.optionValue).catch(() => {});
+                await page.waitForTimeout(300);
 
-            const isStillOpen = await this._isMenuVisible(page, dd);
-            if (!isStillOpen) {
-                t.status = 'passed';
-                t.details = 'ESC đóng dropdown thành công ✓';
+                const selectedText = await page.evaluate((sel) => {
+                    const select = document.querySelector(sel);
+                    return select ? select.options[select.selectedIndex].text : '';
+                }, selectResult.selector);
+
+                if (selectedText === selectResult.optionText) {
+                    t.status = 'passed';
+                    t.details = `Chọn option "${selectResult.optionText}" thành công`;
+                } else {
+                    t.status = 'warning';
+                    t.details = `Đã chọn option nhưng hiển thị "${selectedText}" thay vì "${selectResult.optionText}"`;
+                }
             } else {
-                t.status = 'failed';
-                t.details = 'Dropdown không đóng bằng ESC';
+                t.status = 'warning';
+                t.details = 'Không tìm thấy select dropdown có nhiều hơn 1 option';
             }
+            t.screenshot = await takeScreenshot(page);
         });
     }
 
-    /**
-     * Test native <select> elements when no custom dropdowns found
-     */
-    async _testNativeSelects(page) {
-        const test = createTestResult('dropdown', '6.0', 'Native select elements');
+    /** TC_DD_04: Scroll list → scroll hoạt động */
+    async _testScrollList(page, discovery) {
+        const test = createTestResult('dropdown', 'TC_DD_04', 'Scroll list');
         return runSafe(test, async (t) => {
-            const selects = await page.evaluate(() => {
+            const scrollInfo = await page.evaluate(() => {
+                // Kiểm tra select có size > 1 (listbox mode) hoặc custom scrollable dropdown
+                const select = document.querySelector('select[size], select[multiple]');
+                if (select) {
+                    return {
+                        found: true,
+                        type: 'select',
+                        selector: select.id ? `#${select.id}` : 'select[size]',
+                        scrollable: select.scrollHeight > select.clientHeight,
+                        optionCount: select.options.length,
+                    };
+                }
+
+                // Custom dropdown menu with scroll
+                const menu = document.querySelector('.dropdown-menu, [role="listbox"], [role="menu"]');
+                if (menu) {
+                    return {
+                        found: true,
+                        type: 'custom',
+                        scrollable: menu.scrollHeight > menu.clientHeight,
+                    };
+                }
+
+                // Kiểm tra select thường có nhiều options
+                const normalSelect = document.querySelector('select');
+                if (normalSelect && normalSelect.options.length > 5) {
+                    return { found: true, type: 'select-normal', optionCount: normalSelect.options.length, scrollable: true };
+                }
+
+                return { found: false };
+            });
+
+            if (!scrollInfo.found) {
+                t.status = 'skipped';
+                t.details = 'Không tìm thấy dropdown list có thể scroll';
+                t.screenshot = await takeScreenshot(page);
+                return;
+            }
+
+            if (scrollInfo.scrollable || (scrollInfo.optionCount && scrollInfo.optionCount > 5)) {
+                t.status = 'passed';
+                t.details = `Dropdown list scroll hoạt động (${scrollInfo.optionCount || 'N/A'} options, type: ${scrollInfo.type})`;
+            } else {
+                t.status = 'warning';
+                t.details = 'Dropdown list không cần scroll (ít options)';
+            }
+            t.screenshot = await takeScreenshot(page);
+        });
+    }
+
+    /** TC_DD_05: Default value hiển thị */
+    async _testDefaultValue(page, discovery) {
+        const test = createTestResult('dropdown', 'TC_DD_05', 'Default value');
+        return runSafe(test, async (t) => {
+            const defaultInfo = await page.evaluate(() => {
+                const selects = document.querySelectorAll('select');
                 const results = [];
-                document.querySelectorAll('select').forEach(sel => {
-                    const rect = sel.getBoundingClientRect();
-                    if (rect.width === 0) return;
-                    const options = [];
-                    sel.querySelectorAll('option').forEach(opt => {
-                        options.push({ text: opt.textContent.trim().substring(0, 30), value: opt.value });
-                    });
+                selects.forEach(select => {
+                    if (select.getBoundingClientRect().width === 0) return;
+                    const selectedOption = select.options[select.selectedIndex];
                     results.push({
-                        name: sel.name || sel.id || 'unknown',
-                        selector: sel.id ? `#${sel.id}` : (sel.name ? `select[name="${sel.name}"]` : 'select'),
-                        optionCount: options.length,
-                        hasEmptyOption: options.some(o => !o.value),
-                        hasLabel: !!document.querySelector(`label[for="${sel.id}"]`) || !!sel.closest('label'),
+                        name: select.name || select.id || 'unknown',
+                        defaultText: selectedOption ? selectedOption.text : '',
+                        defaultValue: selectedOption ? selectedOption.value : '',
+                        hasPlaceholder: selectedOption ? (selectedOption.value === '' || selectedOption.disabled) : false,
                     });
                 });
                 return results;
             });
 
-            if (selects.length === 0) {
-                t.status = 'skipped';
-                t.details = 'Không tìm thấy dropdown/select trên trang';
+            if (defaultInfo.length === 0) {
+                t.status = 'warning';
+                t.details = 'Không tìm thấy select dropdown';
+                t.screenshot = await takeScreenshot(page);
                 return;
             }
 
-            const issues = [];
-            for (const sel of selects) {
-                if (sel.optionCount <= 1) issues.push(`"${sel.name}" chỉ có ${sel.optionCount} options`);
-                if (!sel.hasLabel) issues.push(`"${sel.name}" thiếu label`);
+            const allHaveDefault = defaultInfo.every(d => d.defaultText);
+            if (allHaveDefault) {
+                const details = defaultInfo.map(d => `${d.name}: "${d.defaultText}"`).join(', ');
+                t.status = 'passed';
+                t.details = `Tất cả dropdown hiển thị default value (${details})`;
+            } else {
+                t.status = 'warning';
+                t.details = 'Một số dropdown không có default value rõ ràng';
             }
-
-            t.status = issues.length > 0 ? 'warning' : 'passed';
-            t.details = `${selects.length} native selects. ${issues.length > 0 ? 'Issues: ' + issues.join('; ') : 'Tất cả OK ✓'}`;
+            t.screenshot = await takeScreenshot(page);
         });
     }
 }

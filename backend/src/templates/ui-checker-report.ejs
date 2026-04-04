@@ -294,8 +294,14 @@
                 <div>📝 Forms: <strong><%= is.discovery.forms %></strong></div>
                 <div>🔗 Nav Links: <strong><%= is.discovery.navLinks %></strong></div>
                 <div>🔘 Buttons: <strong><%= is.discovery.buttons %></strong></div>
-                <div>📦 Modals: <strong><%= is.discovery.modals %></strong></div>
-                <div>📋 Dropdowns: <strong><%= is.discovery.dropdowns %></strong></div>
+                <div>📂 Dropdowns: <strong><%= is.discovery.dropdowns %></strong></div>
+                <div>☑️ Checkboxes: <strong><%= is.discovery.checkboxes || 0 %></strong></div>
+                <div>🔘 Radios: <strong><%= is.discovery.radios || 0 %></strong></div>
+                <div>🖼️ Images: <strong><%= is.discovery.images || 0 %></strong></div>
+                <div>🔗 Links: <strong><%= is.discovery.links || 0 %></strong></div>
+                <div>📅 Date Inputs: <strong><%= is.discovery.dateInputs || 0 %></strong></div>
+                <div>📑 Tabs: <strong><%= is.discovery.tabs || 0 %></strong></div>
+                <div>💬 Tooltips: <strong><%= is.discovery.tooltips || 0 %></strong></div>
             </div>
         </div>
         <% } %>
@@ -335,27 +341,99 @@
         </div>
         <% } %>
 
-        <!-- Test list -->
+        <%
+            const groupMeta = {
+                navigation: { icon: '🔗', name: 'Header / Navigation' },
+                button: { icon: '🔘', name: 'Button' },
+                inputField: { icon: '✏️', name: 'Input Field' },
+                formValidation: { icon: '📝', name: 'Form Validation' },
+                imageMedia: { icon: '🖼️', name: 'Image / Media' },
+                contentText: { icon: '📄', name: 'Content / Text' },
+                checkbox: { icon: '☑️', name: 'Checkbox' },
+                radioButton: { icon: '🔘', name: 'Radio Button' },
+                dropdown: { icon: '📂', name: 'Dropdown / Combobox' },
+                listBox: { icon: '📋', name: 'List Box' },
+                calendar: { icon: '📅', name: 'Calendar / Date Picker' },
+                link: { icon: '🔗', name: 'Link' },
+                tab: { icon: '📑', name: 'Tab' },
+                hoverTooltip: { icon: '💬', name: 'Hover & Tooltip' },
+            };
+            const groupOrder = ['navigation','button','inputField','formValidation','imageMedia','contentText','checkbox','radioButton','dropdown','listBox','calendar','link','tab','hoverTooltip'];
+        %>
+
+        <!-- Test Groups Summary -->
+        <% if (record.result.testGroups) { %>
+        <div class="section">
+            <h2>Kết quả theo nhóm</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:8px">
+                <% groupOrder.forEach((key, gi) => {
+                    const gd = record.result.testGroups[key];
+                    const meta = groupMeta[key] || { icon: '📋', name: key };
+                    if (!gd) return;
+                    const isSkipped = gd.skipped;
+                    const tests = gd.tests || [];
+                    const passed = tests.filter(t => t.status === 'passed').length;
+                    const failed = tests.filter(t => t.status === 'failed').length;
+                    const bgColor = isSkipped ? '#f8fafc' : failed > 0 ? '#fef2f2' : '#f0fdf4';
+                    const borderColor = isSkipped ? '#e2e8f0' : failed > 0 ? '#fecaca' : '#bbf7d0';
+                %>
+                <div style="padding:10px 12px;border-radius:8px;border:1px solid <%= borderColor %>;background:<%= bgColor %>">
+                    <div style="font-weight:600;font-size:12px"><%= meta.icon %> <%= gi + 1 %>. <%= meta.name %></div>
+                    <div style="font-size:11px;margin-top:4px;color:#64748b">
+                        <% if (isSkipped) { %>⏭️ Skipped<% } else { %><%= passed %>/<%= tests.length %> passed<% if (failed > 0) { %> | <span style="color:#dc2626"><%= failed %> failed</span><% } %><% } %>
+                    </div>
+                </div>
+                <% }); %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Test list with screenshots -->
         <% if (record.result.tests && record.result.tests.length > 0) { %>
+        <%
+            // Build group-based test index for screenshots
+            let globalIdx = 0;
+            const testsByGroup = {};
+            const testGlobalIndex = {};
+            if (record.result.tests) {
+                record.result.tests.forEach((test, i) => {
+                    if (!testsByGroup[test.group]) testsByGroup[test.group] = [];
+                    testsByGroup[test.group].push({ test, globalIdx: i });
+                });
+            }
+        %>
         <div class="section">
             <h2>Chi tiết Tests (<%= record.result.tests.length %>)</h2>
-            <% record.result.tests.forEach((test, idx) => { %>
-            <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:10px" class="test-<%= test.status %>">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                    <div>
-                        <span style="font-weight:600"><%= idx + 1 %>. <%= test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : test.status === 'warning' ? '⚠️' : '💥' %> <%= test.name %></span>
-                        <span class="badge" style="margin-left:8px;background:#f1f5f9;color:#475569"><%= test.type %></span>
+            <%
+                const detailGroupOrder = ['navigation','button','inputField','formValidation','imageMedia','contentText','checkbox','radioButton','dropdown','listBox','calendar','link','tab','hoverTooltip'];
+                const allGroups = Object.keys(testsByGroup);
+                const orderedGroups = detailGroupOrder.filter(g => testsByGroup[g]).concat(allGroups.filter(g => !detailGroupOrder.includes(g)));
+            %>
+            <% orderedGroups.forEach(groupKey => {
+                const groupTests = testsByGroup[groupKey];
+                if (!groupTests || groupTests.length === 0) return;
+                const meta = groupMeta[groupKey] || { icon: '📋', name: groupKey };
+            %>
+            <div style="margin-bottom:16px">
+                <div style="font-weight:600;font-size:14px;margin-bottom:8px;padding:6px 12px;background:#f1f5f9;border-radius:6px"><%= meta.icon %> <%= meta.name %></div>
+                <% groupTests.forEach(({ test, globalIdx: idx }) => { %>
+                <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px;margin-left:12px" class="test-<%= test.status %>">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <div>
+                            <span style="font-weight:600;font-size:12px"><%= test.caseId %> <%= test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : test.status === 'warning' ? '⚠️' : test.status === 'skipped' ? '⏭️' : '💥' %> <%= test.name %></span>
+                        </div>
+                        <span style="font-size:11px;color:#94a3b8"><%= test.duration_ms %>ms</span>
                     </div>
-                    <span style="font-size:11px;color:#94a3b8"><%= test.duration_ms %>ms</span>
+                    <% if (test.details) { %>
+                    <div style="font-size:12px;color:#475569;margin-bottom:4px"><%= test.details %></div>
+                    <% } %>
+                    <% if (screenshots['test_' + idx]) { %>
+                    <div style="margin-top:6px;max-width:600px">
+                        <img src="<%= screenshots['test_' + idx] %>" alt="<%= test.name %>" style="width:100%;border-radius:6px;border:1px solid #e2e8f0;display:block" />
+                    </div>
+                    <% } %>
                 </div>
-                <% if (test.details) { %>
-                <div style="font-size:12px;color:#475569;margin-bottom:6px"><%= test.details %></div>
-                <% } %>
-                <% if (screenshots['test_' + idx]) { %>
-                <div style="margin-top:8px;max-width:600px">
-                    <img src="<%= screenshots['test_' + idx] %>" alt="<%= test.name %>" style="width:100%;border-radius:6px;border:1px solid #e2e8f0;display:block" />
-                </div>
-                <% } %>
+                <% }); %>
             </div>
             <% }); %>
         </div>

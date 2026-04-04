@@ -41,26 +41,26 @@ const TEST_STATUS_CONFIG = {
 }
 
 const GROUP_META = {
-    navigation:       { icon: '🔗', name: 'Navigation & Routing' },
+    navigation:       { icon: '🔗', name: 'Header / Navigation' },
+    button:           { icon: '🔘', name: 'Button' },
+    inputField:       { icon: '✏️', name: 'Input Field' },
     formValidation:   { icon: '📝', name: 'Form Validation' },
-    formBoundary:     { icon: '🔒', name: 'Form Boundary Testing' },
-    button:           { icon: '🔘', name: 'Button Interaction' },
-    modal:            { icon: '📦', name: 'Modal & Dialog' },
-    dropdown:         { icon: '📂', name: 'Dropdown' },
+    imageMedia:       { icon: '🖼️', name: 'Image / Media' },
+    contentText:      { icon: '📄', name: 'Content / Text' },
+    checkbox:         { icon: '☑️', name: 'Checkbox' },
+    radioButton:      { icon: '🔘', name: 'Radio Button' },
+    dropdown:         { icon: '📂', name: 'Dropdown / Combobox' },
+    listBox:          { icon: '📋', name: 'List Box' },
+    calendar:         { icon: '📅', name: 'Calendar / Date Picker' },
+    link:             { icon: '🔗', name: 'Link' },
+    tab:              { icon: '📑', name: 'Tab' },
     hoverTooltip:     { icon: '💬', name: 'Hover & Tooltip' },
-    scrollLazyLoad:   { icon: '📜', name: 'Scroll & Lazy Load' },
-    brokenResources:  { icon: '🔴', name: 'Broken Resources' },
-    tabAccordion:     { icon: '📑', name: 'Tab & Accordion' },
-    responsiveA11y:   { icon: '♿', name: 'Responsive & Accessibility' },
-    cookieConsent:    { icon: '🍪', name: 'Cookie Consent / Banner' },
-    loadingError:     { icon: '⏳', name: 'Loading & Error States' },
-    mediaVideo:       { icon: '🎬', name: 'Media & Video' },
 }
 
 const GROUP_ORDER = [
-    'navigation', 'formValidation', 'formBoundary', 'button', 'modal', 'dropdown',
-    'hoverTooltip', 'scrollLazyLoad', 'brokenResources', 'tabAccordion',
-    'responsiveA11y', 'cookieConsent', 'loadingError', 'mediaVideo',
+    'navigation', 'button', 'inputField', 'formValidation', 'imageMedia', 'contentText',
+    'checkbox', 'radioButton', 'dropdown', 'listBox',
+    'calendar', 'link', 'tab', 'hoverTooltip',
 ]
 
 // ========== MAIN COMPONENT ==========
@@ -870,8 +870,10 @@ function InteractionResult({ result }) {
                     <span>📝 {s.discovery.forms} forms</span>
                     <span>🔗 {s.discovery.navLinks} nav links</span>
                     <span>🔘 {s.discovery.buttons} buttons</span>
-                    <span>📦 {s.discovery.modals} modals</span>
-                    <span>📋 {s.discovery.dropdowns} dropdowns</span>
+                    <span>📂 {s.discovery.dropdowns} dropdowns</span>
+                    <span>☑️ {s.discovery.checkboxes} checkboxes</span>
+                    <span>🖼️ {s.discovery.images} images</span>
+                    <span>📅 {s.discovery.dateInputs} date inputs</span>
                 </div>
             )}
 
