@@ -78,7 +78,7 @@ export default function Projects({ navigate }) {
                                 <td>
                                     <div className="flex gap-2">
                                         <button className="btn btn-outline btn-sm" onClick={() => navigate('suites', { project_id: p.id, project_name: p.name })}>
-                                            <FolderOpen size={13} /> Test Suites
+                                            <FolderOpen size={13} /> Bộ kiểm thử
                                         </button>
                                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}><Edit2 size={13} /></button>
                                         <button className="btn btn-danger btn-sm" onClick={() => del(p.id, p.name)}><Trash2 size={13} /></button>

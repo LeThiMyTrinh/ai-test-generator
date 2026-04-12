@@ -84,7 +84,7 @@ export default function Dashboard({ navigate }) {
                 </div>
                 <div className="kpi-card pass" onClick={() => navigate('suites')} style={{ cursor: 'pointer' }}>
                     <div className="num">{suites.length}</div>
-                    <div className="lbl">Test Suites</div>
+                    <div className="lbl">Bộ kiểm thử</div>
                 </div>
                 <div className="kpi-card fail" onClick={() => navigate('editor')} style={{ cursor: 'pointer' }}>
                     <div className="num">{totalTC}</div>
@@ -113,9 +113,9 @@ export default function Dashboard({ navigate }) {
 
             {/* Quick Actions */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" onClick={() => navigate('editor')}><Plus size={14} /> Tạo Test Case</button>
+                <button className="btn btn-primary" onClick={() => navigate('editor')}><Plus size={14} /> Tạo test case</button>
                 <button className="btn btn-outline" onClick={() => navigate('ai-generator')}><Zap size={14} /> Tạo bằng AI</button>
-                <button className="btn btn-outline" onClick={() => navigate('recorder')}>Record & Replay</button>
+                <button className="btn btn-outline" onClick={() => navigate('recorder')}>Ghi & phát lại</button>
                 <button className="btn btn-outline" onClick={() => navigate('analytics')}><BarChart3 size={14} /> Analytics</button>
             </div>
 
@@ -173,14 +173,14 @@ export default function Dashboard({ navigate }) {
             )}
 
             <div className="flex justify-between items-center mb-4">
-                <div className="font-bold" style={{ fontSize: 15 }}>Danh sách Test Suite</div>
-                <button className="btn btn-primary btn-sm" onClick={() => navigate('projects')}><Plus size={14} /> Quản lý Dự án</button>
+                <div className="font-bold" style={{ fontSize: 15 }}>Danh sách bộ kiểm thử</div>
+                <button className="btn btn-primary btn-sm" onClick={() => navigate('projects')}><Plus size={14} /> Quản lý dự án</button>
             </div>
             <div className="card table-wrap">
                 <table>
                     <thead><tr><th>Tên Suite</th><th>Dự án</th><th>Số Test Case</th><th>Mô tả</th><th>Ngày tạo</th><th></th></tr></thead>
                     <tbody>
-                        {suites.length === 0 && <tr><td colSpan={6}><div className="empty-state"><p>Chưa có Test Suite nào. Bắt đầu tạo mới!</p></div></td></tr>}
+                        {suites.length === 0 && <tr><td colSpan={6}><div className="empty-state"><p>Chưa có bộ kiểm thử nào. Bắt đầu tạo mới!</p></div></td></tr>}
                         {suites.map(s => (
                             <tr key={s.id}>
                                 <td><strong>{s.name}</strong></td>

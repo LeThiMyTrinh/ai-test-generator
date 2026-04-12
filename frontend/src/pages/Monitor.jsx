@@ -239,9 +239,9 @@ export default function Monitor({ navigate, ctx }) {
                         </select>
                     </div>
                     <div style={{ flex: 1, minWidth: 200 }}>
-                        <label className="form-label">Chọn Test Suite để chạy</label>
+                        <label className="form-label">Chọn bộ kiểm thử để chạy</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} disabled={status === 'running'}>
-                            <option value="">-- Chọn Suite --</option>
+                            <option value="">-- Chọn bộ kiểm thử --</option>
                             {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} test case)</option>)}
                         </select>
                     </div>

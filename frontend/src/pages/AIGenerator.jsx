@@ -175,7 +175,7 @@ export default function AIGenerator() {
 
     // Save scenarios
     const handleSave = async (idx) => {
-        if (!suiteId) { toast.error('Chọn Test Suite trước khi lưu'); return }
+        if (!suiteId) { toast.error('Chọn bộ kiểm thử trước khi lưu'); return }
         const sc = editingScenarios[idx]
         if (!sc.steps.length) { toast.error('Không có bước test nào'); return }
         try {
@@ -192,7 +192,7 @@ export default function AIGenerator() {
     }
 
     const handleSaveAll = async () => {
-        if (!suiteId) { toast.error('Chọn Test Suite trước khi lưu'); return }
+        if (!suiteId) { toast.error('Chọn bộ kiểm thử trước khi lưu'); return }
         let count = 0
         for (let i = 0; i < editingScenarios.length; i++) {
             const sc = editingScenarios[i]
@@ -315,16 +315,16 @@ export default function AIGenerator() {
                                     </div>
                                 </div>
 
-                                <h3 style={{ marginTop: 20 }}>Test Suite</h3>
+                                <h3 style={{ marginTop: 20 }}>Bộ kiểm thử</h3>
                                 <select className="form-control" value={suiteId} onChange={e => setSuiteId(e.target.value)}>
-                                    <option value="">-- Chọn Suite để lưu --</option>
+                                    <option value="">-- Chọn bộ kiểm thử để lưu --</option>
                                     {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
 
                                 <button className="btn btn-primary ai-generate-btn" onClick={handleGenerate}
                                     disabled={loading || !url.trim()}
                                     style={{ marginTop: 24, width: '100%' }}>
-                                    <Cpu size={16} /> Phân tích & Tạo Test Case
+                                    <Cpu size={16} /> Phân tích & Tạo test case
                                 </button>
                             </div>
                         </div>

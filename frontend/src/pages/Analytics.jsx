@@ -69,9 +69,9 @@ export default function Analytics({ navigate, ctx }) {
                         </select>
                     </div>
                     <div style={{ minWidth: 200, flex: 1 }}>
-                        <label className="form-label">Test Suite</label>
+                        <label className="form-label">Bộ kiểm thử</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
-                            <option value="">-- Chọn Suite --</option>
+                            <option value="">-- Chọn bộ kiểm thử --</option>
                             {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} test case)</option>)}
                         </select>
                     </div>
@@ -86,7 +86,7 @@ export default function Analytics({ navigate, ctx }) {
             {!selectedSuite && (
                 <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
                     <BarChart3 size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
-                    <p>Chọn Test Suite để xem Analytics</p>
+                    <p>Chọn bộ kiểm thử để xem phân tích</p>
                 </div>
             )}
 

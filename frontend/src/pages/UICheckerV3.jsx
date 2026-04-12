@@ -18,18 +18,14 @@ const SEVERITY_CONFIG = {
 }
 
 const CATEGORY_ICONS = {
-    color_contrast: { icon: '🎨', label: 'Màu sắc & Tương phản' },
-    typography: { icon: '🔤', label: 'Typography' },
-    layout: { icon: '📐', label: 'Layout & Spacing' },
-    seo: { icon: '🔍', label: 'SEO & Meta Tags' },
-    forms: { icon: '📝', label: 'Forms & Accessibility' },
-    images: { icon: '🖼️', label: 'Hình ảnh' },
-    performance: { icon: '⚡', label: 'Performance' },
-    responsive: { icon: '📱', label: 'Responsive' },
-    blocking: { icon: '🚫', label: 'Blocking' },
-    critical_ux: { icon: '💥', label: 'UX nghiêm trọng' },
-    accessibility: { icon: '♿', label: 'Accessibility' },
-    visual: { icon: '👁️', label: 'Visual' },
+    layoutUI:         { icon: '📐', label: 'Layout & UI hiển thị' },
+    uiComponents:     { icon: '🔘', label: 'UI Components' },
+    textContent:      { icon: '📝', label: 'Text & Content' },
+    imageIcon:        { icon: '🖼️', label: 'Image & Icon' },
+    scrollPosition:   { icon: '📜', label: 'Scroll & Position' },
+    loadingAnimation: { icon: '⏳', label: 'Loading & Animation' },
+    accessibility:    { icon: '♿', label: 'Accessibility' },
+    linkNavigation:   { icon: '🔗', label: 'Link & Navigation' },
 }
 
 const TEST_STATUS_CONFIG = {
@@ -262,7 +258,7 @@ export default function UICheckerV3() {
             {/* Tab bar */}
             <div style={{ display: 'flex', gap: 4, marginBottom: 0, borderBottom: '2px solid #1e293b' }}>
                 <button style={tabStyle('enhanced')} onClick={() => setActiveTab('enhanced')}>
-                    <ScanSearch size={16} /> Kiểm tra UI nâng cao
+                    <ScanSearch size={16} /> Kiểm thử giao diện nâng cao
                 </button>
                 <button style={tabStyle('design')} onClick={() => setActiveTab('design')}>
                     <Image size={16} /> So sánh Design
@@ -335,7 +331,7 @@ export default function UICheckerV3() {
 // ========== TAB 1: ENHANCED UI CHECK ==========
 
 function EnhancedTab({ presets, desktop, setDesktop, tablet, setTablet, mobile, setMobile, loading, onRun, result, severityFilter, setSeverityFilter, categoryFilter, setCategoryFilter }) {
-    const [viewMode, setViewMode] = useState('developer')
+    const [enhancedViewMode, setEnhancedViewMode] = useState('checklist') // 'checklist' | 'issues'
     const [expandedIssue, setExpandedIssue] = useState(null)
 
     const selStyle = { padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff' }
@@ -366,34 +362,44 @@ function EnhancedTab({ presets, desktop, setDesktop, tablet, setTablet, mobile, 
                 </>}
                 <button onClick={onRun} disabled={loading}
                     style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: loading ? '#94a3b8' : '#2563eb', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-                    {loading ? <><Loader2 size={16} className="spin" /> Đang kiểm tra...</> : <><ScanSearch size={16} /> Kiểm tra UI (35+ checks)</>}
+                    {loading ? <><Loader2 size={16} className="spin" /> Đang kiểm tra...</> : <><ScanSearch size={16} /> Kiểm thử giao diện</>}
                 </button>
             </div>
 
             {/* Results */}
             {result && (
                 <div>
-                    {/* Quality Score */}
-                    <QualityScoreCard summary={result.summary} />
+                    {/* Score Cards Row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: result.checklistSummary ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 16 }}>
+                        <QualityScoreCard summary={result.summary} />
+                        {result.checklistSummary && <ChecklistSummaryCard summary={result.checklistSummary} />}
+                    </div>
 
-                    {/* Category overview */}
-                    {result.summary.checkCategories && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, margin: '16px 0' }}>
-                            {Object.entries(result.summary.checkCategories).map(([key, cat]) => (
-                                <div key={key} onClick={() => setCategoryFilter(categoryFilter === key ? 'all' : key)}
-                                    style={{ padding: '10px 12px', borderRadius: 8, background: categoryFilter === key ? '#dbeafe' : '#fff', border: `1px solid ${cat.passed ? '#d1fae5' : '#fecaca'}`, cursor: 'pointer', transition: 'all 0.2s' }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{CATEGORY_ICONS[key]?.icon || '📋'} {cat.label}</div>
-                                    <div style={{ fontSize: 12, color: cat.total === 0 ? '#16a34a' : '#dc2626', marginTop: 4 }}>
-                                        {cat.total === 0 ? '✅ Passed' : `${cat.total} vấn đề`}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    {/* View Mode Toggle */}
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+                        <button onClick={() => setEnhancedViewMode('checklist')}
+                            style={{
+                                padding: '8px 18px', borderRadius: 8, border: `2px solid ${enhancedViewMode === 'checklist' ? '#2563eb' : '#e2e8f0'}`,
+                                background: enhancedViewMode === 'checklist' ? '#eff6ff' : '#fff',
+                                color: enhancedViewMode === 'checklist' ? '#1d4ed8' : '#475569',
+                                cursor: 'pointer', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+                            }}>
+                            <CheckCircle2 size={14} /> Checklist ({result.checklistSummary?.total || 0} tests)
+                        </button>
+                        <button onClick={() => setEnhancedViewMode('issues')}
+                            style={{
+                                padding: '8px 18px', borderRadius: 8, border: `2px solid ${enhancedViewMode === 'issues' ? '#2563eb' : '#e2e8f0'}`,
+                                background: enhancedViewMode === 'issues' ? '#eff6ff' : '#fff',
+                                color: enhancedViewMode === 'issues' ? '#1d4ed8' : '#475569',
+                                cursor: 'pointer', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+                            }}>
+                            <AlertTriangle size={14} /> Issues ({result.issues?.length || 0} issues)
+                        </button>
+                    </div>
 
                     {/* Screenshots */}
                     {result.screenshots && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8, margin: '16px 0' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8, margin: '0 0 16px 0' }}>
                             {['desktop', 'tablet', 'mobile'].map(vp => result.screenshots[vp] && (
                                 <div key={vp} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
                                     <div style={{ padding: '6px 10px', background: '#f1f5f9', fontSize: 12, fontWeight: 600 }}>
@@ -405,20 +411,297 @@ function EnhancedTab({ presets, desktop, setDesktop, tablet, setTablet, mobile, 
                         </div>
                     )}
 
-                    {/* Filters */}
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 13, color: '#64748b', alignSelf: 'center' }}>Filter:</span>
-                        {['all', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s => (
-                            <button key={s} onClick={() => setSeverityFilter(s)}
-                                style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #cbd5e1', background: severityFilter === s ? '#1e293b' : '#fff', color: severityFilter === s ? '#fff' : '#475569', fontSize: 12, cursor: 'pointer' }}>
-                                {s === 'all' ? 'Tất cả' : SEVERITY_CONFIG[s]?.label || s}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Checklist View */}
+                    {enhancedViewMode === 'checklist' && result.checklist && (
+                        <ChecklistView checklist={result.checklist} />
+                    )}
+                    {enhancedViewMode === 'checklist' && !result.checklist && (
+                        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                            Checklist chưa có dữ liệu. Hãy chạy kiểm tra lại.
+                        </div>
+                    )}
 
-                    {/* Issue list */}
-                    <IssueList issues={result.issues} severityFilter={severityFilter} categoryFilter={categoryFilter}
-                        expandedIssue={expandedIssue} setExpandedIssue={setExpandedIssue} />
+                    {/* Issues View */}
+                    {enhancedViewMode === 'issues' && (
+                        <>
+                            {/* Category overview */}
+                            {result.summary.checkCategories && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, margin: '0 0 16px 0' }}>
+                                    {Object.entries(result.summary.checkCategories).map(([key, cat]) => (
+                                        <div key={key} onClick={() => setCategoryFilter(categoryFilter === key ? 'all' : key)}
+                                            style={{ padding: '10px 12px', borderRadius: 8, background: categoryFilter === key ? '#dbeafe' : '#fff', border: `1px solid ${cat.passed ? '#d1fae5' : '#fecaca'}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600 }}>{CATEGORY_ICONS[key]?.icon || '📋'} {cat.label}</div>
+                                            <div style={{ fontSize: 12, color: cat.total === 0 ? '#16a34a' : '#dc2626', marginTop: 4 }}>
+                                                {cat.total === 0 ? '✅ Passed' : `${cat.total} vấn đề`}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Filters */}
+                            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 13, color: '#64748b', alignSelf: 'center' }}>Filter:</span>
+                                {['all', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s => (
+                                    <button key={s} onClick={() => setSeverityFilter(s)}
+                                        style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #cbd5e1', background: severityFilter === s ? '#1e293b' : '#fff', color: severityFilter === s ? '#fff' : '#475569', fontSize: 12, cursor: 'pointer' }}>
+                                        {s === 'all' ? 'Tất cả' : SEVERITY_CONFIG[s]?.label || s}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Issue list */}
+                            <IssueList issues={result.issues} severityFilter={severityFilter} categoryFilter={categoryFilter}
+                                expandedIssue={expandedIssue} setExpandedIssue={setExpandedIssue} />
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ========== CHECKLIST COMPONENTS ==========
+
+const CHECKLIST_GROUP_ORDER = [
+    'layoutUI', 'uiComponents', 'textContent', 'imageIcon',
+    'scrollPosition', 'loadingAnimation', 'accessibility', 'linkNavigation',
+]
+
+const CHECKLIST_GROUP_META = {
+    layoutUI:         { icon: '📐', name: 'Layout & UI hiển thị' },
+    uiComponents:     { icon: '🔘', name: 'UI Components' },
+    textContent:      { icon: '📝', name: 'Text & Content' },
+    imageIcon:        { icon: '🖼️', name: 'Image & Icon' },
+    scrollPosition:   { icon: '📜', name: 'Scroll & Position' },
+    loadingAnimation: { icon: '⏳', name: 'Loading & Animation' },
+    accessibility:    { icon: '♿', name: 'Accessibility' },
+    linkNavigation:   { icon: '🔗', name: 'Link & Navigation' },
+}
+
+function ChecklistSummaryCard({ summary }) {
+    const rate = summary.passRate ?? 0
+    const getColor = (r) => r >= 90 ? '#16a34a' : r >= 70 ? '#ca8a04' : r >= 50 ? '#ea580c' : '#dc2626'
+    const getLabel = (r) => r >= 90 ? 'Tốt' : r >= 70 ? 'Khá' : r >= 50 ? 'Trung bình' : 'Cần cải thiện'
+
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 16, padding: 20, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{
+                    width: 80, height: 80, borderRadius: '50%',
+                    border: `4px solid ${getColor(rate)}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 20, fontWeight: 700, color: getColor(rate),
+                }}>
+                    {rate}%
+                </div>
+                <div style={{ fontSize: 12, color: getColor(rate), fontWeight: 600, marginTop: 4 }}>{getLabel(rate)}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Checklist</div>
+            </div>
+            <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Kết quả Checklist</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>✅ Passed</span>
+                        <span style={{ fontWeight: 600, color: '#16a34a' }}>{summary.passed}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>❌ Failed</span>
+                        <span style={{ fontWeight: 600, color: '#dc2626' }}>{summary.failed}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>⚠️ Warning</span>
+                        <span style={{ fontWeight: 600, color: '#ca8a04' }}>{summary.warning}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>⏭️ Skipped</span>
+                        <span style={{ fontWeight: 600, color: '#64748b' }}>{summary.skipped}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>📊 Tổng</span>
+                        <span style={{ fontWeight: 600 }}>{summary.total}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function ChecklistView({ checklist }) {
+    const [expandedGroups, setExpandedGroups] = useState(new Set(CHECKLIST_GROUP_ORDER))
+    const [expandedTest, setExpandedTest] = useState(null)
+    const [lightboxImg, setLightboxImg] = useState(null)
+    const [statusFilter, setStatusFilter] = useState('all')
+
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') setLightboxImg(null) }
+        if (lightboxImg) window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [lightboxImg])
+
+    const toggleGroup = (key) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev)
+            if (next.has(key)) next.delete(key)
+            else next.add(key)
+            return next
+        })
+    }
+
+    const expandAll = () => setExpandedGroups(new Set(CHECKLIST_GROUP_ORDER))
+    const collapseAll = () => setExpandedGroups(new Set())
+
+    const getGroupStats = (tests) => {
+        const passed = tests.filter(t => t.status === 'passed').length
+        const failed = tests.filter(t => t.status === 'failed').length
+        const warnings = tests.filter(t => t.status === 'warning').length
+        return { passed, failed, warnings, total: tests.length }
+    }
+
+    const filterTests = (tests) => {
+        if (statusFilter === 'all') return tests
+        if (statusFilter === 'failed') return tests.filter(t => t.status === 'failed' || t.status === 'error')
+        if (statusFilter === 'warning') return tests.filter(t => t.status === 'warning')
+        return tests
+    }
+
+    // Count totals for filter badges
+    const allTests = CHECKLIST_GROUP_ORDER.flatMap(k => checklist[k] || [])
+    const totalFailed = allTests.filter(t => t.status === 'failed' || t.status === 'error').length
+    const totalWarnings = allTests.filter(t => t.status === 'warning').length
+
+    return (
+        <div>
+            {/* Header bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>📋 Checklist kiểm tra giao diện ({allTests.length} tests)</div>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <Filter size={13} color="#64748b" />
+                    <button onClick={() => setStatusFilter('all')}
+                        style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #cbd5e1', background: statusFilter === 'all' ? '#1e293b' : '#fff', color: statusFilter === 'all' ? '#fff' : '#475569', fontSize: 12, cursor: 'pointer' }}>
+                        Tất cả
+                    </button>
+                    {totalFailed > 0 && (
+                        <button onClick={() => setStatusFilter('failed')}
+                            style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #fecaca', background: statusFilter === 'failed' ? '#dc2626' : '#fff', color: statusFilter === 'failed' ? '#fff' : '#dc2626', fontSize: 12, cursor: 'pointer' }}>
+                            ❌ Failed ({totalFailed})
+                        </button>
+                    )}
+                    {totalWarnings > 0 && (
+                        <button onClick={() => setStatusFilter('warning')}
+                            style={{ padding: '4px 12px', borderRadius: 16, border: '1px solid #fde68a', background: statusFilter === 'warning' ? '#ca8a04' : '#fff', color: statusFilter === 'warning' ? '#fff' : '#ca8a04', fontSize: 12, cursor: 'pointer' }}>
+                            ⚠️ Warning ({totalWarnings})
+                        </button>
+                    )}
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={expandAll} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11, cursor: 'pointer', color: '#475569' }}>Mở tất cả</button>
+                    <button onClick={collapseAll} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11, cursor: 'pointer', color: '#475569' }}>Thu gọn</button>
+                </div>
+            </div>
+
+            {/* Group list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {CHECKLIST_GROUP_ORDER.map(groupKey => {
+                    const tests = checklist[groupKey]
+                    if (!tests || tests.length === 0) return null
+
+                    const filtered = filterTests(tests)
+                    if (statusFilter !== 'all' && filtered.length === 0) return null
+
+                    const meta = CHECKLIST_GROUP_META[groupKey] || { icon: '📋', name: groupKey }
+                    const stats = getGroupStats(tests)
+                    const isExpanded = expandedGroups.has(groupKey)
+
+                    const groupBorderColor = stats.failed > 0 ? '#fecaca' : stats.warnings > 0 ? '#fde68a' : '#d1fae5'
+
+                    return (
+                        <div key={groupKey} style={{ background: '#fff', borderRadius: 10, border: `1px solid ${groupBorderColor}`, overflow: 'hidden' }}>
+                            {/* Group Header */}
+                            <div onClick={() => toggleGroup(groupKey)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+                                    cursor: 'pointer', background: isExpanded ? '#f0f9ff' : '#fafafa',
+                                    userSelect: 'none', transition: 'background 0.15s',
+                                }}>
+                                {isExpanded ? <ChevronDown size={14} color="#2563eb" /> : <ChevronRight size={14} color="#475569" />}
+                                <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                                <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>
+                                    {meta.name}
+                                    <span style={{ fontWeight: 400, color: '#64748b', marginLeft: 6 }}>({stats.total} tests)</span>
+                                </span>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                    {stats.passed > 0 && (
+                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>
+                                            ✅ {stats.passed}
+                                        </span>
+                                    )}
+                                    {stats.failed > 0 && (
+                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
+                                            ❌ {stats.failed}
+                                        </span>
+                                    )}
+                                    {stats.warnings > 0 && (
+                                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef9c3', color: '#a16207', fontWeight: 600 }}>
+                                            ⚠️ {stats.warnings}
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: stats.failed > 0 ? '#dc2626' : '#16a34a' }}>
+                                    {stats.passed}/{stats.total}
+                                </span>
+                            </div>
+
+                            {/* Group Body */}
+                            {isExpanded && (
+                                <div style={{ borderTop: '1px solid #e2e8f0', padding: '6px 8px', background: '#f8fafc' }}>
+                                    {filtered.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: 16, color: '#94a3b8', fontSize: 13 }}>
+                                            Không có test nào khớp với bộ lọc
+                                        </div>
+                                    ) : (
+                                        filtered.map((test, idx) => {
+                                            const testKey = `${groupKey}-${idx}`
+                                            const status = TEST_STATUS_CONFIG[test.status] || TEST_STATUS_CONFIG.error
+                                            const isTestExpanded = expandedTest === testKey
+                                            return (
+                                                <div key={testKey} style={{ marginBottom: 3, background: '#fff', borderRadius: 8, border: `1px solid ${status.color}22`, overflow: 'hidden' }}>
+                                                    <div onClick={() => setExpandedTest(isTestExpanded ? null : testKey)}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', background: status.bg }}>
+                                                        {isTestExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                        <span style={{ fontSize: 13 }}>{status.icon}</span>
+                                                        <span style={{ fontSize: 11, color: '#94a3b8', minWidth: 32 }}>{test.caseId || ''}</span>
+                                                        <span style={{ fontSize: 13, flex: 1 }}>{test.name}</span>
+                                                        {test.duration_ms != null && <span style={{ fontSize: 11, color: '#94a3b8' }}>{test.duration_ms}ms</span>}
+                                                    </div>
+                                                    {isTestExpanded && (
+                                                        <div style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', fontSize: 13 }}>
+                                                            <div style={{ color: '#475569', marginBottom: 8 }}>{test.details}</div>
+                                                            {test.selector && <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Selector: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>{test.selector}</code></div>}
+                                                            {test.screenshot && (
+                                                                <div onClick={() => setLightboxImg(test.screenshot)}
+                                                                    style={{ marginTop: 8, borderRadius: 6, overflow: 'hidden', border: '1px solid #e2e8f0', maxWidth: 600, cursor: 'zoom-in' }}>
+                                                                    <img src={test.screenshot} alt={test.name} style={{ width: '100%', display: 'block' }} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+
+            {/* Lightbox */}
+            {lightboxImg && (
+                <div className="lightbox" onClick={() => setLightboxImg(null)}>
+                    <button className="lightbox-close" onClick={() => setLightboxImg(null)}>✕</button>
+                    <img src={lightboxImg} alt="Screenshot" onClick={e => e.stopPropagation()} />
                 </div>
             )}
         </div>
@@ -1133,7 +1416,7 @@ function SummaryCard({ label, value, color }) {
 // ========== TAB 4: HISTORY ==========
 
 const TYPE_LABELS = {
-    enhanced: { label: 'Kiểm tra UI', icon: '🔍', color: '#2563eb' },
+    enhanced: { label: 'Kiểm thử giao diện', icon: '🔍', color: '#2563eb' },
     'design-compare': { label: 'So sánh Design', icon: '🎨', color: '#7c3aed' },
     interaction: { label: 'Test tương tác', icon: '🖱️', color: '#059669' },
 }

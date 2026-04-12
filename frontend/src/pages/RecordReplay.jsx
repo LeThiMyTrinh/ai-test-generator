@@ -187,7 +187,7 @@ export default function RecordReplay({ navigate, ctx }) {
 
     // Save as test case
     const saveAsTestCase = async () => {
-        if (!suiteId) return toast.error('Vui lòng chọn Test Suite')
+        if (!suiteId) return toast.error('Vui lòng chọn bộ kiểm thử')
         if (!title.trim()) return toast.error('Vui lòng nhập tiêu đề')
         if (editSteps.length === 0) return toast.error('Không có bước nào để lưu')
         setSaving(true)
@@ -229,7 +229,7 @@ export default function RecordReplay({ navigate, ctx }) {
             <div style={{ marginBottom: 24 }}>
                 <h2 style={{ margin: 0, fontSize: 22, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Circle size={20} style={{ color: recording ? '#ef4444' : 'var(--text-muted)' }} />
-                    Record & Replay
+                    Ghi & phát lại
                 </h2>
                 <p className="text-muted" style={{ margin: '4px 0 0' }}>Ghi lại thao tác trên trình duyệt và chuyển thành test case tự động</p>
             </div>
@@ -497,9 +497,9 @@ export default function RecordReplay({ navigate, ctx }) {
                                     </select>
                                 </div>
                                 <div style={{ gridColumn: '1 / -1' }}>
-                                    <label className="form-label">Test Suite</label>
+                                    <label className="form-label">Bộ kiểm thử</label>
                                     <select className="form-control" value={suiteId} onChange={e => setSuiteId(e.target.value)}>
-                                        <option value="">-- Chọn Suite --</option>
+                                        <option value="">-- Chọn bộ kiểm thử --</option>
                                         {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
                                 </div>

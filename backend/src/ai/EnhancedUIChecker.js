@@ -17,6 +17,16 @@ const AxeBuilder = require('@axe-core/playwright').default;
 const AutoLogin = require('./AutoLogin');
 const IssueAnalyzer = require('./IssueAnalyzer');
 
+// 8 Checklist Test Groups — theo PDF "Kiểm tra giao diện"
+const LayoutUITests = require('./interaction-tests/LayoutUITests');
+const UIComponentTests = require('./interaction-tests/UIComponentTests');
+const TextContentTests = require('./interaction-tests/TextContentTests');
+const ImageIconTests = require('./interaction-tests/ImageIconTests');
+const ScrollPositionTests = require('./interaction-tests/ScrollPositionTests');
+const LoadingAnimationTests = require('./interaction-tests/LoadingAnimationTests');
+const AccessibilityTests = require('./interaction-tests/AccessibilityTests');
+const LinkNavigationTests = require('./interaction-tests/LinkNavigationTests');
+
 // Reuse presets from UIChecker
 const DESKTOP_PRESETS = {
     '1920x1080': { width: 1920, height: 1080 },
@@ -40,6 +50,15 @@ const MOBILE_PRESETS = {
 class EnhancedUIChecker {
     constructor() {
         this.analyzer = new IssueAnalyzer();
+        // 8 checklist test groups — PDF "Kiểm tra giao diện"
+        this._layoutUITests = new LayoutUITests();
+        this._uiComponentTests = new UIComponentTests();
+        this._textContentTests = new TextContentTests();
+        this._imageIconTests = new ImageIconTests();
+        this._scrollPositionTests = new ScrollPositionTests();
+        this._loadingAnimationTests = new LoadingAnimationTests();
+        this._accessibilityTests = new AccessibilityTests();
+        this._linkNavigationTests = new LinkNavigationTests();
     }
 
     /**
@@ -56,11 +75,12 @@ class EnhancedUIChecker {
         const browser = await chromium.launch({ headless: true });
 
         try {
-            // Run checks on each viewport in parallel
-            const [desktopResult, tabletResult, mobileResult] = await Promise.all([
+            // Run checks on each viewport + checklist tests in parallel
+            const [desktopResult, tabletResult, mobileResult, checklistResult] = await Promise.all([
                 this._checkViewport(browser, url, 'desktop', desktopKey, loginEmail, loginPassword),
                 this._checkViewport(browser, url, 'tablet', tabletKey, loginEmail, loginPassword),
                 this._checkViewport(browser, url, 'mobile', mobileKey, loginEmail, loginPassword),
+                this._runChecklistOnDesktop(browser, url, desktopKey, loginEmail, loginPassword),
             ]);
 
             // Check broken links (once, not per viewport)
@@ -102,6 +122,7 @@ class EnhancedUIChecker {
             };
 
             console.log(`[EnhancedUIChecker] Complete: ${summary.total} issues, quality score: ${summary.qualityScore}/100`);
+            console.log(`[EnhancedUIChecker] Checklist: ${checklistResult.summary.passed}/${checklistResult.summary.total} passed (${checklistResult.summary.passRate}%)`);
 
             await browser.close();
 
@@ -120,6 +141,8 @@ class EnhancedUIChecker {
                 issues: analyzedIssues,
                 patterns,
                 summary,
+                checklist: checklistResult.groups,
+                checklistSummary: checklistResult.summary,
             };
         } catch (err) {
             await browser.close();
@@ -141,37 +164,60 @@ class EnhancedUIChecker {
 
     /**
      * Categorize check results for summary display
+     * 8 groups matching PDF "Kiểm tra giao diện" checklist
      */
     _categorizeChecks(issues) {
         const categories = {
-            color_contrast: { total: 0, passed: true, label: 'Màu sắc & Tương phản' },
-            typography: { total: 0, passed: true, label: 'Typography' },
-            layout: { total: 0, passed: true, label: 'Layout & Spacing' },
-            seo: { total: 0, passed: true, label: 'SEO & Meta Tags' },
-            forms: { total: 0, passed: true, label: 'Forms & Accessibility' },
-            images: { total: 0, passed: true, label: 'Hình ảnh' },
-            performance: { total: 0, passed: true, label: 'Performance' },
-            responsive: { total: 0, passed: true, label: 'Responsive' },
+            layoutUI:         { total: 0, passed: true, label: 'Layout & UI hiển thị' },
+            uiComponents:     { total: 0, passed: true, label: 'UI Components' },
+            textContent:      { total: 0, passed: true, label: 'Text & Content' },
+            imageIcon:        { total: 0, passed: true, label: 'Image & Icon' },
+            scrollPosition:   { total: 0, passed: true, label: 'Scroll & Position' },
+            loadingAnimation: { total: 0, passed: true, label: 'Loading & Animation' },
+            accessibility:    { total: 0, passed: true, label: 'Accessibility' },
+            linkNavigation:   { total: 0, passed: true, label: 'Link & Navigation' },
         };
 
         const typeToCategory = {
-            LOW_CONTRAST: 'color_contrast', COLOR_INCONSISTENCY: 'color_contrast', UNREADABLE_ON_BG: 'color_contrast',
-            TOO_MANY_FONTS: 'typography', FONT_SIZE_TOO_SMALL: 'typography', LINE_HEIGHT_TIGHT: 'typography', FONT_NOT_LOADED: 'typography',
-            IRREGULAR_SPACING: 'layout', ELEMENT_OVERLAP: 'layout', ALIGNMENT_OFF: 'layout', EMPTY_CONTAINER: 'layout',
-            HORIZONTAL_SCROLLBAR: 'layout', OVERFLOW_X: 'layout', OUTSIDE_VIEWPORT: 'layout',
-            MISSING_TITLE: 'seo', MISSING_META_DESC: 'seo', MISSING_OG_TAGS: 'seo', MISSING_VIEWPORT_META: 'seo',
-            MULTIPLE_H1: 'seo', HEADING_SKIP: 'seo', MISSING_LANG: 'seo', MISSING_FAVICON: 'seo',
-            INPUT_WITHOUT_LABEL: 'forms', FORM_NO_SUBMIT: 'forms', PLACEHOLDER_AS_LABEL: 'forms',
-            MISSING_AUTOCOMPLETE: 'forms', SMALL_TOUCH_TARGET: 'forms', ACCESSIBILITY: 'forms',
-            BROKEN_IMAGE: 'images', MISSING_ALT: 'images', DISTORTED_IMAGE: 'images',
-            OVERSIZED_IMAGE: 'images', NO_LAZY_LOADING: 'images', NO_WEBP_SUPPORT: 'images',
-            RENDER_BLOCKING_SCRIPT: 'performance', CLS_PRONE: 'performance', TOO_MANY_THIRD_PARTY: 'performance',
-            JS_ERROR: 'performance', CONSOLE_ERROR: 'performance',
-            RESPONSIVE_HIDDEN: 'responsive', TEXT_TRUNCATED: 'responsive', BROKEN_LINK: 'responsive',
+            // Group 1: Layout & UI hiển thị
+            HORIZONTAL_SCROLLBAR: 'layoutUI', OVERFLOW_X: 'layoutUI', OUTSIDE_VIEWPORT: 'layoutUI',
+            ELEMENT_OVERLAP: 'layoutUI', EMPTY_CONTAINER: 'layoutUI', IRREGULAR_SPACING: 'layoutUI',
+            ALIGNMENT_OFF: 'layoutUI', TOO_MANY_FONTS: 'layoutUI', FONT_NOT_LOADED: 'layoutUI',
+            RESPONSIVE_HIDDEN: 'layoutUI',
+
+            // Group 2: UI Components (buttons, inputs, forms, dropdowns)
+            INPUT_WITHOUT_LABEL: 'uiComponents', FORM_NO_SUBMIT: 'uiComponents',
+            PLACEHOLDER_AS_LABEL: 'uiComponents', MISSING_AUTOCOMPLETE: 'uiComponents',
+            SMALL_TOUCH_TARGET: 'uiComponents',
+
+            // Group 3: Text & Content
+            FONT_SIZE_TOO_SMALL: 'textContent', LINE_HEIGHT_TIGHT: 'textContent',
+            TEXT_TRUNCATED: 'textContent', MISSING_LANG: 'textContent',
+            MISSING_TITLE: 'textContent', HEADING_SKIP: 'textContent', MULTIPLE_H1: 'textContent',
+
+            // Group 4: Image & Icon
+            BROKEN_IMAGE: 'imageIcon', MISSING_ALT: 'imageIcon', DISTORTED_IMAGE: 'imageIcon',
+            OVERSIZED_IMAGE: 'imageIcon', NO_WEBP_SUPPORT: 'imageIcon',
+
+            // Group 5: Scroll & Position
+            NO_LAZY_LOADING: 'scrollPosition', CLS_PRONE: 'scrollPosition',
+
+            // Group 6: Loading & Animation
+            RENDER_BLOCKING_SCRIPT: 'loadingAnimation', TOO_MANY_THIRD_PARTY: 'loadingAnimation',
+            JS_ERROR: 'loadingAnimation', CONSOLE_ERROR: 'loadingAnimation',
+
+            // Group 7: Accessibility
+            LOW_CONTRAST: 'accessibility', COLOR_INCONSISTENCY: 'accessibility',
+            UNREADABLE_ON_BG: 'accessibility', ACCESSIBILITY: 'accessibility',
+            MISSING_VIEWPORT_META: 'accessibility',
+
+            // Group 8: Link & Navigation
+            BROKEN_LINK: 'linkNavigation', MISSING_META_DESC: 'linkNavigation',
+            MISSING_OG_TAGS: 'linkNavigation', MISSING_FAVICON: 'linkNavigation',
         };
 
         for (const issue of issues) {
-            const cat = typeToCategory[issue.type] || 'layout';
+            const cat = typeToCategory[issue.type] || 'layoutUI';
             if (categories[cat]) {
                 categories[cat].total++;
                 if (issue.severity === 'CRITICAL' || issue.severity === 'HIGH') {
@@ -1299,6 +1345,270 @@ class EnhancedUIChecker {
     // ==========================================
     // CROSS-VIEWPORT COMPARISON (enhanced)
     // ==========================================
+
+    // ==========================================
+    // CHECKLIST TESTS — 8 groups, 46 test cases
+    // ==========================================
+
+    /**
+     * Run 8 checklist test groups on a separate desktop context
+     */
+    async _runChecklistOnDesktop(browser, url, desktopKey, loginEmail, loginPassword) {
+        const vp = DESKTOP_PRESETS[desktopKey] || DESKTOP_PRESETS['1920x1080'];
+        const context = await browser.newContext({ viewport: vp });
+        const page = await context.newPage();
+
+        try {
+            await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+            await page.waitForTimeout(1500);
+
+            // Auto-login if needed
+            if (loginEmail && loginPassword) {
+                const autoLogin = new AutoLogin();
+                const loginSuccess = await autoLogin.attemptLogin(page, loginEmail, loginPassword);
+                if (loginSuccess) {
+                    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+                    await page.waitForTimeout(2000);
+                }
+            }
+
+            // Discover interactive elements
+            const discovery = await this._discoverElementsForChecklist(page);
+
+            // Run 8 test groups sequentially (they share the same page)
+            console.log('[EnhancedUIChecker] Running checklist tests (8 groups)...');
+            const layoutResults = await this._layoutUITests.run(page, discovery, url);
+            const uiCompResults = await this._uiComponentTests.run(page, discovery, url);
+            const textResults = await this._textContentTests.run(page, discovery, url);
+            const imageResults = await this._imageIconTests.run(page, discovery, url);
+            const scrollResults = await this._scrollPositionTests.run(page, discovery, url);
+            const loadingResults = await this._loadingAnimationTests.run(page, discovery, url);
+            const a11yResults = await this._accessibilityTests.run(page, discovery, url);
+            const linkResults = await this._linkNavigationTests.run(page, discovery, url);
+
+            await context.close();
+
+            const groups = {
+                layoutUI: layoutResults,
+                uiComponents: uiCompResults,
+                textContent: textResults,
+                imageIcon: imageResults,
+                scrollPosition: scrollResults,
+                loadingAnimation: loadingResults,
+                accessibility: a11yResults,
+                linkNavigation: linkResults,
+            };
+
+            return {
+                groups,
+                summary: this._generateChecklistSummary(groups),
+            };
+        } catch (err) {
+            await context.close();
+            console.error('[EnhancedUIChecker] Checklist error:', err.message);
+            return {
+                groups: {},
+                summary: { total: 0, passed: 0, failed: 0, warning: 0, skipped: 0, error: 0, passRate: 0 },
+            };
+        }
+    }
+
+    /**
+     * Generate checklist summary from grouped test results
+     */
+    _generateChecklistSummary(groups) {
+        let total = 0, passed = 0, failed = 0, warning = 0, skipped = 0, error = 0;
+        for (const tests of Object.values(groups)) {
+            for (const t of tests) {
+                total++;
+                if (t.status === 'passed') passed++;
+                else if (t.status === 'failed') failed++;
+                else if (t.status === 'warning') warning++;
+                else if (t.status === 'skipped') skipped++;
+                else if (t.status === 'error') error++;
+            }
+        }
+        return {
+            total, passed, failed, warning, skipped, error,
+            passRate: total > 0 ? Math.round(passed / total * 100) : 0,
+        };
+    }
+
+    /**
+     * Discover interactive elements for checklist tests
+     * (same logic as InteractionTester._discoverElements)
+     */
+    async _discoverElementsForChecklist(page) {
+        return await page.evaluate(() => {
+            const discovery = {
+                forms: [], navLinks: [], buttons: [], dropdowns: [],
+                inputs: [], checkboxes: [], radios: [], listBoxes: [],
+                dateInputs: [], links: [], images: [], tabs: [], tooltips: [],
+                totalInteractive: 0,
+            };
+
+            // Forms
+            document.querySelectorAll('form').forEach(form => {
+                const fields = [];
+                form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea').forEach(input => {
+                    fields.push({
+                        tag: input.tagName.toLowerCase(), type: input.type || 'text',
+                        name: input.name || '', id: input.id || '', required: input.required,
+                        placeholder: input.placeholder || '',
+                        selector: input.id ? `#${input.id}` : (input.name ? `[name="${input.name}"]` : `${input.tagName.toLowerCase()}[type="${input.type}"]`),
+                    });
+                });
+                const submitBtn = form.querySelector('[type="submit"], button:not([type="button"]):not([type="reset"])');
+                discovery.forms.push({
+                    id: form.id || '', action: form.action || '', method: form.method || 'get', fields,
+                    submitSelector: submitBtn ? (submitBtn.id ? `#${submitBtn.id}` : 'button[type="submit"]') : null,
+                    submitText: submitBtn ? submitBtn.textContent.trim().substring(0, 50) : null,
+                    selector: form.id ? `#${form.id}` : 'form',
+                });
+            });
+
+            // Navigation links
+            document.querySelectorAll('nav a[href], header a[href], .navbar a[href]').forEach(a => {
+                const href = a.href;
+                if (!href || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || href === '#') return;
+                const rect = a.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+                discovery.navLinks.push({
+                    text: a.textContent.trim().substring(0, 50), href,
+                    isExternal: !href.startsWith(window.location.origin),
+                    selector: a.id ? `#${a.id}` : `a[href="${a.getAttribute('href')}"]`,
+                });
+            });
+
+            // Buttons
+            document.querySelectorAll('button:not([type="submit"]), [role="button"], .btn, .button').forEach(btn => {
+                const rect = btn.getBoundingClientRect();
+                const style = getComputedStyle(btn);
+                if (rect.width === 0 || rect.height === 0 || style.display === 'none') return;
+                if (btn.closest('form') && btn.type === 'submit') return;
+                discovery.buttons.push({
+                    text: btn.textContent.trim().substring(0, 50), id: btn.id || '',
+                    selector: btn.id ? `#${btn.id}` : (btn.textContent.trim() ? `button:has-text("${btn.textContent.trim().substring(0, 30)}")` : btn.tagName.toLowerCase()),
+                });
+            });
+
+            // Dropdowns
+            document.querySelectorAll('select, [data-toggle="dropdown"], [data-bs-toggle="dropdown"], details > summary').forEach(dd => {
+                const rect = dd.getBoundingClientRect();
+                if (rect.width === 0) return;
+                discovery.dropdowns.push({
+                    text: dd.textContent.trim().substring(0, 50),
+                    selector: dd.id ? `#${dd.id}` : dd.tagName.toLowerCase(),
+                    type: dd.tagName === 'SELECT' ? 'native' : (dd.tagName === 'SUMMARY' ? 'details' : 'bootstrap'),
+                });
+            });
+
+            // Standalone inputs
+            document.querySelectorAll('input:not(form input):not([type="hidden"]), textarea:not(form textarea)').forEach(input => {
+                const rect = input.getBoundingClientRect();
+                if (rect.width === 0) return;
+                discovery.inputs.push({
+                    type: input.type || 'text', name: input.name || '',
+                    placeholder: input.placeholder || '',
+                    selector: input.id ? `#${input.id}` : `input[name="${input.name}"]`,
+                });
+            });
+
+            // Checkboxes
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const rect = cb.getBoundingClientRect();
+                if (rect.width > 0 || getComputedStyle(cb).display !== 'none') {
+                    discovery.checkboxes.push({
+                        name: cb.name || '', id: cb.id || '',
+                        selector: cb.id ? `#${cb.id}` : `input[type="checkbox"][name="${cb.name}"]`,
+                    });
+                }
+            });
+
+            // Radio buttons
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                const rect = radio.getBoundingClientRect();
+                if (rect.width > 0 || getComputedStyle(radio).display !== 'none') {
+                    discovery.radios.push({
+                        name: radio.name || '', value: radio.value || '',
+                        selector: radio.id ? `#${radio.id}` : `input[type="radio"][name="${radio.name}"]`,
+                    });
+                }
+            });
+
+            // List boxes
+            document.querySelectorAll('select[size], select[multiple], [role="listbox"]').forEach(lb => {
+                const rect = lb.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.listBoxes.push({
+                        selector: lb.id ? `#${lb.id}` : (lb.name ? `select[name="${lb.name}"]` : '[role="listbox"]'),
+                        type: lb.tagName === 'SELECT' ? 'native' : 'custom',
+                    });
+                }
+            });
+
+            // Date inputs
+            document.querySelectorAll('input[type="date"], input[type="datetime-local"], input[type="month"], [class*="datepicker"], [class*="date-picker"]').forEach(input => {
+                const rect = input.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.dateInputs.push({
+                        type: input.type || 'text',
+                        selector: input.id ? `#${input.id}` : (input.name ? `input[name="${input.name}"]` : `input[type="${input.type}"]`),
+                    });
+                }
+            });
+
+            // All links
+            document.querySelectorAll('a[href]').forEach(a => {
+                const rect = a.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0 && !a.href.startsWith('javascript:')) {
+                    discovery.links.push({ href: a.href, text: a.textContent.trim().substring(0, 50) });
+                }
+            });
+
+            // Images
+            document.querySelectorAll('img').forEach(img => {
+                const rect = img.getBoundingClientRect();
+                if (rect.width > 0 || rect.height > 0) {
+                    discovery.images.push({
+                        src: img.src.substring(0, 100), alt: img.alt || '',
+                        loaded: img.complete && img.naturalWidth > 0,
+                    });
+                }
+            });
+
+            // Tabs
+            document.querySelectorAll('[role="tab"], [data-bs-toggle="tab"], [data-toggle="tab"]').forEach(tab => {
+                const rect = tab.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.tabs.push({
+                        text: tab.textContent.trim().substring(0, 30),
+                        selector: tab.id ? `#${tab.id}` : '[role="tab"]',
+                    });
+                }
+            });
+
+            // Tooltips
+            document.querySelectorAll('[title], [data-bs-toggle="tooltip"], [data-tooltip], [data-tippy-content]').forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 0) {
+                    discovery.tooltips.push({
+                        text: el.getAttribute('title') || el.getAttribute('data-tooltip') || '',
+                        selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
+                    });
+                }
+            });
+
+            discovery.totalInteractive =
+                discovery.forms.length + discovery.navLinks.length + discovery.buttons.length +
+                discovery.dropdowns.length + discovery.inputs.length + discovery.checkboxes.length +
+                discovery.radios.length + discovery.listBoxes.length + discovery.dateInputs.length +
+                discovery.links.length + discovery.images.length + discovery.tabs.length +
+                discovery.tooltips.length;
+
+            return discovery;
+        });
+    }
 
     _compareViewports(desktop, tablet, mobile) {
         const issues = [];

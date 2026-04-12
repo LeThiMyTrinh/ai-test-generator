@@ -57,14 +57,14 @@ function AppContent() {
   }
 
   const titles = {
-    dashboard: 'Dashboard', projects: 'Quản lý Dự án', suites: 'Quản lý Test Suite',
-    editor: 'Tạo / Chỉnh sửa Test Case', monitor: 'Theo dõi Thực thi',
-    history: 'Lịch sử các lần chạy', 'ai-generator': '🤖 Tạo Test Case tự động',
-    'ui-checker': '🔍 Kiểm tra UI V3',
-    'ui-checker-v2': '🔍 Kiểm tra UI V2',
-    recorder: '🎬 Record & Replay',
-    analytics: 'Smart Analytics',
-    settings: 'Cài đặt'
+    dashboard: 'Tổng quan', projects: 'Quản lý dự án', suites: 'Bộ kiểm thử',
+    editor: 'Tạo test case', monitor: 'Giám sát thời gian thực',
+    history: 'Lịch sử thực thi', 'ai-generator': 'Tạo test case tự động',
+    'ui-checker': 'Kiểm thử giao diện',
+    'ui-checker-v2': 'Kiểm thử giao diện V2',
+    recorder: 'Ghi & phát lại',
+    analytics: 'Phân tích thông minh',
+    settings: 'Cài đặt hệ thống'
   }
 
   return (

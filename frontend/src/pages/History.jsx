@@ -344,7 +344,7 @@ export default function History({ navigate, ctx }) {
                 </div>
             </div>
 
-            {runs.length === 0 && <div className="empty-state"><p>Chưa có lần chạy nào. Hãy vào Live Monitor để chạy test.</p></div>}
+            {runs.length === 0 && <div className="empty-state"><p>Chưa có lần chạy nào. Hãy vào Giám sát thời gian thực để chạy test.</p></div>}
 
             {runs.map(run => {
                 const s = run.summary_json ? JSON.parse(run.summary_json) : {}

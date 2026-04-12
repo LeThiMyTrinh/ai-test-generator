@@ -6,7 +6,7 @@ import { Plus, Trash2, Upload, Download, Save, ArrowUp, ArrowDown, X, Sparkles, 
 const ACTION_GROUPS = {
     'UI cơ bản': ['navigate', 'click', 'fill', 'select', 'hover', 'wait', 'screenshot'],
     'UI nâng cao': ['double_click', 'right_click', 'keyboard', 'scroll_to', 'drag_drop', 'upload_file'],
-    'Kiểm tra UI': ['assert_text', 'assert_visible', 'assert_url'],
+    'Kiểm thử giao diện': ['assert_text', 'assert_visible', 'assert_url'],
     'API Testing': ['api_request', 'assert_status', 'assert_body', 'assert_header', 'assert_response_time', 'store_variable'],
 }
 
@@ -374,7 +374,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                 {project_name ? (
                     <button className="breadcrumb-item" onClick={() => navigate('suites', { project_id, project_name })}>{project_name}</button>
                 ) : (
-                    <button className="breadcrumb-item" onClick={() => navigate('suites')}>Test Suites</button>
+                    <button className="breadcrumb-item" onClick={() => navigate('suites')}>Bộ kiểm thử</button>
                 )}
                 <ChevronRight size={14} className="breadcrumb-sep" />
                 <span className="breadcrumb-item active">{suite_name || 'Test Cases'}</span>
@@ -391,15 +391,15 @@ export default function TestCaseEditor({ navigate, ctx }) {
                         </select>
                     </div>
                     <div style={{ minWidth: 200, flex: 1 }}>
-                        <label className="form-label">Chọn Test Suite</label>
+                        <label className="form-label">Chọn bộ kiểm thử</label>
                         <select className="form-control" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}>
-                            <option value="">-- Chọn Suite --</option>
+                            <option value="">-- Chọn bộ kiểm thử --</option>
                             {suites.map(s => <option key={s.id} value={s.id}>{s.name} ({s.tc_count} test case)</option>)}
                         </select>
                     </div>
                     {selectedSuite && (
                         <div className="flex gap-2" style={{ marginTop: 22 }}>
-                            <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(emptyTC()); setTabMode('nl'); setShowPreview(false); setWarnings([]); setShowForm(true) }}><Plus size={15} /> Thêm Test Case</button>
+                            <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(emptyTC()); setTabMode('nl'); setShowPreview(false); setWarnings([]); setShowForm(true) }}><Plus size={15} /> Thêm test case</button>
                             <a className="btn btn-outline" href={apiUrl(`/api/test-cases/export/excel?suite_id=${selectedSuite}`)} download title="Tải test cases về dạng Excel"><Download size={15} /> Xuất Excel</a>
                             <a className="btn btn-ghost" href={apiUrl('/api/test-cases/template/download')} download title="Tải file mẫu Excel"><Download size={15} /> File mẫu</a>
                             <button className="btn btn-outline" onClick={() => postmanRef.current?.click()} title="Import từ Postman Collection JSON" style={{ borderColor: '#f97316', color: '#f97316' }}>
@@ -481,7 +481,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                 <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
                     <div className="modal" style={{ maxWidth: 900 }}>
                         <div className="modal-header">
-                            <h3>{editId ? 'Chỉnh sửa Test Case' : 'Tạo Test Case mới'}</h3>
+                            <h3>{editId ? 'Chỉnh sửa test case' : 'Tạo test case mới'}</h3>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}><X size={16} /></button>
                         </div>
                         <div className="modal-body">
@@ -714,7 +714,7 @@ export default function TestCaseEditor({ navigate, ctx }) {
                                 </button>
                             )}
                             <button className="btn btn-primary" onClick={save} disabled={form.steps.length === 0}>
-                                <Save size={15} /> {editId ? 'Cập nhật' : 'Lưu Test Case'}
+                                <Save size={15} /> {editId ? 'Cập nhật' : 'Lưu test case'}
                             </button>
                         </div>
                     </div>

@@ -583,7 +583,7 @@ export default function UICheckerV2() {
             <div className="card" style={{ marginBottom: 24, padding: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                     <ScanSearch size={22} style={{ color: 'var(--primary)' }} />
-                    <h2 style={{ margin: 0, fontSize: 18 }}>Kiểm tra UI tự động</h2>
+                    <h2 style={{ margin: 0, fontSize: 18 }}>Kiểm thử giao diện tự động</h2>
                 </div>
                 <p className="text-muted" style={{ marginBottom: 16 }}>
                     Nhập URL → Hệ thống tự động scan giao diện ở 3 thiết bị → Phát hiện bug UI
@@ -644,7 +644,7 @@ export default function UICheckerV2() {
                 </div>
                 <button className="btn btn-primary" onClick={runCheck} disabled={loading} style={{ width: '100%', padding: '12px 0', fontSize: 15, fontWeight: 700 }}>
                     {loading ? (<><Loader2 size={16} className="spin" style={{ marginRight: 6 }} /> Đang kiểm tra... (có thể mất 30-60 giây)</>)
-                        : (<><ScanSearch size={16} style={{ marginRight: 6 }} /> Kiểm tra UI</>)}
+                        : (<><ScanSearch size={16} style={{ marginRight: 6 }} /> Kiểm thử giao diện</>)}
                 </button>
             </div>
 

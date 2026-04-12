@@ -58,7 +58,7 @@ export default function Suites({ navigate, ctx = {} }) {
                 {currentProjectName ? (
                     <span className="breadcrumb-item active">📂 {currentProjectName}</span>
                 ) : (
-                    <span className="breadcrumb-item active">Tất cả Test Suites</span>
+                    <span className="breadcrumb-item active">Tất cả bộ kiểm thử</span>
                 )}
             </div>
 
@@ -84,7 +84,7 @@ export default function Suites({ navigate, ctx = {} }) {
                     </div>
                     <div style={{ marginTop: 22 }}>
                         <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ name: '', description: '', project_id: selectedProject || '' }); setShowModal(true) }}>
-                            <Plus size={16} /> Tạo Test Suite mới
+                            <Plus size={16} /> Tạo bộ kiểm thử mới
                         </button>
                     </div>
                 </div>
@@ -129,7 +129,7 @@ export default function Suites({ navigate, ctx = {} }) {
                 <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
                     <div className="modal">
                         <div className="modal-header">
-                            <h3>{editId ? 'Chỉnh sửa Suite' : 'Tạo Test Suite mới'}</h3>
+                            <h3>{editId ? 'Chỉnh sửa bộ kiểm thử' : 'Tạo bộ kiểm thử mới'}</h3>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}>✕</button>
                         </div>
                         <div className="modal-body">

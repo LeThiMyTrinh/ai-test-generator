@@ -2,17 +2,17 @@ import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkl
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
-    { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-    { id: 'projects', label: 'Quản lý Dự án', Icon: FolderOpen },
-    { id: 'suites', label: 'Test Suites', Icon: FlaskConical },
-    { id: 'editor', label: 'Tạo Test Case', Icon: ClipboardList },
-    { id: 'ai-generator', label: 'Tạo Test Case tự động', Icon: Sparkles },
-    { id: 'ui-checker', label: 'Kiểm tra UI', Icon: ScanSearch },
-    { id: 'monitor', label: 'Live Monitor', Icon: Activity },
-    { id: 'history', label: 'Lịch sử chạy', Icon: History },
-    { id: 'recorder', label: 'Record & Replay', Icon: Video },
-    { id: 'analytics', label: 'Smart Analytics', Icon: BarChart3 },
-    { id: 'settings', label: 'Cài đặt', Icon: Settings },
+    { id: 'dashboard', label: 'Tổng quan', Icon: LayoutDashboard },
+    { id: 'projects', label: 'Quản lý dự án', Icon: FolderOpen },
+    { id: 'suites', label: 'Bộ kiểm thử', Icon: FlaskConical },
+    { id: 'editor', label: 'Tạo test case', Icon: ClipboardList },
+    { id: 'ai-generator', label: 'Tạo test case tự động', Icon: Sparkles },
+    { id: 'ui-checker', label: 'Kiểm thử giao diện', Icon: ScanSearch },
+    { id: 'monitor', label: 'Giám sát thời gian thực', Icon: Activity },
+    { id: 'history', label: 'Lịch sử thực thi', Icon: History },
+    { id: 'recorder', label: 'Ghi & phát lại', Icon: Video },
+    { id: 'analytics', label: 'Phân tích thông minh', Icon: BarChart3 },
+    { id: 'settings', label: 'Cài đặt hệ thống', Icon: Settings },
 ]
 
 export default function Layout({ children, page, navigate, title }) {

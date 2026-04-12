@@ -61,6 +61,19 @@ function stripAndSaveScreenshots(result, historyId, type) {
                 screenshotMap[vp] = saveScreenshot(result.screenshots[vp], historyId, vp);
             }
         }
+        // Strip checklist test screenshots
+        if (result.checklist) {
+            for (const [groupKey, tests] of Object.entries(result.checklist)) {
+                if (Array.isArray(tests)) {
+                    tests.forEach((t, i) => {
+                        if (t.screenshot) {
+                            screenshotMap[`cl_${groupKey}_${i}`] = saveScreenshot(t.screenshot, historyId, `cl_${groupKey}_${i}`);
+                            delete t.screenshot;
+                        }
+                    });
+                }
+            }
+        }
     }
 
     if (type === 'design-compare' && result.screenshots) {
