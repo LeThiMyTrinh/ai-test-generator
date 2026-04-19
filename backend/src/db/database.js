@@ -15,6 +15,8 @@ const db = {
   users: Datastore.create({ filename: path.join(DATA_DIR, 'users.db'), autoload: true }),
   uiCheckerHistory: Datastore.create({ filename: path.join(DATA_DIR, 'ui_checker_history.db'), autoload: true }),
   dataSets: Datastore.create({ filename: path.join(DATA_DIR, 'datasets.db'), autoload: true }),
+  performanceHistory: Datastore.create({ filename: path.join(DATA_DIR, 'performance_history.db'), autoload: true }),
+  loadTestHistory: Datastore.create({ filename: path.join(DATA_DIR, 'load_test_history.db'), autoload: true }),
 };
 
 // Seed admin account on startup

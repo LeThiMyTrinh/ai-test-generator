@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Load Test Report - <%= result.url %></title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #1e293b; background: #f8fafc; line-height: 1.5; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    .header { background: linear-gradient(135deg, #0f766e, #1e40af); color: #fff; padding: 32px; border-radius: 12px; margin-bottom: 24px; }
+    .header h1 { font-size: 22px; margin-bottom: 8px; }
+    .header .meta { font-size: 12px; opacity: 0.85; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 16px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+
+    /* Verdict */
+    .verdict-box { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .verdict-circle { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: #fff; }
+    .verdict-pass { background: #16a34a; }
+    .verdict-warn { background: #ca8a04; }
+    .verdict-fail { background: #dc2626; }
+
+    /* Stats grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .stat { padding: 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+    .stat .label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+    .stat .value { font-size: 22px; font-weight: 700; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 8px; background: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-weight: 600; color: #475569; }
+    td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+    tr:hover { background: #f8fafc; }
+
+    /* Badge */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .badge-pass { background: #dcfce7; color: #15803d; }
+    .badge-fail { background: #fee2e2; color: #991b1b; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+    .badge-critical { background: #fee2e2; color: #991b1b; }
+    .badge-high { background: #fff7ed; color: #c2410c; }
+    .badge-medium { background: #fefce8; color: #a16207; }
+    .badge-low { background: #f0fdf4; color: #15803d; }
+
+    /* Bottleneck card */
+    .bn { padding: 12px 16px; border-left: 4px solid; border-radius: 6px; margin-bottom: 10px; background: #fff; border: 1px solid #e2e8f0; }
+    .bn-CRITICAL { border-left-color: #dc2626; background: #fef2f2; }
+    .bn-HIGH { border-left-color: #ea580c; background: #fff7ed; }
+    .bn-MEDIUM { border-left-color: #ca8a04; background: #fefce8; }
+    .bn-LOW { border-left-color: #16a34a; background: #f0fdf4; }
+    .bn .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .bn .meta-line { font-size: 11px; color: #64748b; margin-bottom: 6px; }
+    .bn .cause { font-size: 12px; margin: 6px 0; }
+    .bn ul { margin: 4px 0 0 20px; font-size: 12px; }
+    .bn li { margin-bottom: 3px; }
+
+    /* Bar chart */
+    .bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; }
+    .bar-label { min-width: 140px; }
+    .bar-track { flex: 1; height: 18px; background: #e2e8f0; border-radius: 4px; overflow: hidden; position: relative; }
+    .bar-fill { height: 100%; background: #0ea5e9; border-radius: 4px; }
+    .bar-value { min-width: 60px; text-align: right; font-weight: 600; }
+
+    .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Báo cáo Kiểm thử Hiệu năng (Load Testing)</h1>
+        <div class="meta">
+            <strong>URL:</strong> <%= result.url %><br>
+            <strong>Thời gian:</strong> <%= new Date(result.timestamp || record.created_at).toLocaleString('vi-VN') %>
+            &nbsp;|&nbsp; <strong>Tổng thời gian:</strong> <%= Math.round((result.durationMs || 0) / 1000) %>s
+        </div>
+    </div>
+
+    <!-- TỔNG QUAN -->
+    <div class="card">
+        <h2>Tổng quan</h2>
+        <div class="verdict-box">
+            <div class="verdict-circle verdict-<%= (result.verdict || 'FAIL').toLowerCase() %>">
+                <%= result.verdict === 'PASS' ? '✓' : result.verdict === 'WARN' ? '!' : '✗' %>
+            </div>
+            <div style="flex: 1;">
+                <div style="font-size: 24px; font-weight: 800;"><%= result.verdictLabel || result.verdict %></div>
+                <div style="color: #64748b; margin-top: 4px;">
+                    <% if (result.capacity) { %>Sức chịu tải ước tính: <strong><%= result.capacity %> concurrent users</strong><br><% } %>
+                    <% if (result.breakpoint) { %>Điểm gãy: <strong style="color: #dc2626;">~<%= result.breakpoint %> VU</strong><br><% } %>
+                    <% if (result.slo) { %>SLO: p95 &lt; <%= result.slo.p95Ms %>ms | error &lt; <%= result.slo.errorRatePct %>%<% } %>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 20px;">
+            <div class="stat"><div class="label">Test case</div><div class="value"><%= result.summary?.totalTestCases || 0 %></div></div>
+            <div class="stat"><div class="label">Pass</div><div class="value" style="color: #16a34a;"><%= result.summary?.passedCount || 0 %></div></div>
+            <div class="stat"><div class="label">Fail</div><div class="value" style="color: #dc2626;"><%= result.summary?.failedCount || 0 %></div></div>
+            <div class="stat"><div class="label">Peak RPS</div><div class="value"><%= Math.round(result.summary?.peakRps || 0) %></div></div>
+            <div class="stat"><div class="label">Worst p95</div><div class="value"><%= Math.round(result.summary?.worstP95 || 0) %>ms</div></div>
+            <div class="stat"><div class="label">Bottleneck</div><div class="value" style="color: <%= (result.bottlenecks?.length || 0) > 0 ? '#dc2626' : '#16a34a' %>"><%= result.bottlenecks?.length || 0 %></div></div>
+        </div>
+    </div>
+
+    <!-- TEST CASES -->
+    <div class="card">
+        <h2>Kết quả từng test case</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Test case</th>
+                    <th>VU</th>
+                    <th>Duration</th>
+                    <th>RPS</th>
+                    <th>p50</th>
+                    <th>p95</th>
+                    <th>p99</th>
+                    <th>Error%</th>
+                    <th>Verdict</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% (result.testCases || []).forEach((tc, idx) => { %>
+                <tr>
+                    <td><%= idx + 1 %></td>
+                    <td>
+                        <strong><%= tc.name %></strong><br>
+                        <span style="font-size: 10px; color: #64748b;"><%= tc.description %></span>
+                    </td>
+                    <td><%= tc.config?.connections || '—' %><%= tc.config?.mode === 'ramp' ? ' (ramp)' : tc.config?.mode === 'spike' ? ' (spike)' : '' %></td>
+                    <td><%= tc.config?.duration || '—' %>s</td>
+                    <td><%= tc.metrics ? Math.round(tc.metrics.rps) : '—' %></td>
+                    <td><%= tc.metrics ? Math.round(tc.metrics.latency.p50) + 'ms' : '—' %></td>
+                    <td><%= tc.metrics ? Math.round(tc.metrics.latency.p95) + 'ms' : '—' %></td>
+                    <td><%= tc.metrics ? Math.round(tc.metrics.latency.p99) + 'ms' : '—' %></td>
+                    <td><%= tc.metrics ? tc.metrics.errorRate.toFixed(2) + '%' : '—' %></td>
+                    <td>
+                        <% if (tc.sloCheck?.pass) { %>
+                            <span class="badge badge-pass">PASS</span>
+                        <% } else { %>
+                            <span class="badge badge-fail">FAIL</span>
+                        <% } %>
+                    </td>
+                </tr>
+                <% if (!tc.sloCheck?.pass && tc.sloCheck?.reasons?.length) { %>
+                <tr>
+                    <td colspan="10" style="background: #fef2f2; color: #991b1b; font-size: 11px;">
+                        ⚠ Lý do: <%= tc.sloCheck.reasons.join(' • ') %>
+                    </td>
+                </tr>
+                <% } %>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- BAR CHART: p95 theo TC -->
+    <div class="card">
+        <h2>So sánh latency p95 theo test case</h2>
+        <%
+        const validTcs = (result.testCases || []).filter(t => t.metrics);
+        const maxP95 = Math.max(1, ...validTcs.map(t => t.metrics.latency.p95 || 0));
+        validTcs.forEach(tc => {
+            const pct = (tc.metrics.latency.p95 / maxP95) * 100;
+            const color = tc.sloCheck?.pass ? '#16a34a' : '#dc2626';
+        %>
+        <div class="bar">
+            <div class="bar-label"><%= tc.name %></div>
+            <div class="bar-track"><div class="bar-fill" style="width: <%= pct %>%; background: <%= color %>;"></div></div>
+            <div class="bar-value"><%= Math.round(tc.metrics.latency.p95) %>ms</div>
+        </div>
+        <% }) %>
+    </div>
+
+    <!-- BOTTLENECK -->
+    <% if ((result.bottlenecks || []).length > 0) { %>
+    <div class="card">
+        <h2>Bottleneck phát hiện</h2>
+        <% result.bottlenecks.forEach(bn => { %>
+        <div class="bn bn-<%= bn.severity %>">
+            <div class="title">
+                <span class="badge badge-<%= bn.severity.toLowerCase() %>"><%= bn.severity %></span>
+                <%= bn.title %>
+            </div>
+            <div class="meta-line">Loại: <%= bn.type %></div>
+            <div><strong>Bằng chứng:</strong> <%= bn.evidence %></div>
+            <div class="cause"><strong>Nguyên nhân có thể:</strong> <%= bn.cause %></div>
+            <% if (bn.recommendations?.length) { %>
+            <div style="margin-top: 6px;"><strong>Khuyến nghị:</strong>
+                <ul>
+                    <% bn.recommendations.forEach(r => { %>
+                    <li><%= r %></li>
+                    <% }) %>
+                </ul>
+            </div>
+            <% } %>
+        </div>
+        <% }) %>
+    </div>
+    <% } %>
+
+    <!-- RECOMMENDATIONS -->
+    <% if ((result.recommendations || []).length > 0) { %>
+    <div class="card">
+        <h2>Khuyến nghị chung</h2>
+        <% result.recommendations.forEach(rec => { %>
+        <div style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px;">
+            <div style="font-weight: 600; margin-bottom: 4px;"><%= rec.title %></div>
+            <% if (rec.description) { %><div style="color: #64748b; font-size: 12px; margin-bottom: 6px;"><%= rec.description %></div><% } %>
+            <% if (rec.suggestions?.length) { %>
+            <ul style="margin-left: 20px; font-size: 12px;">
+                <% rec.suggestions.forEach(s => { %><li><%= s %></li><% }) %>
+            </ul>
+            <% } %>
+        </div>
+        <% }) %>
+    </div>
+    <% } %>
+
+    <div class="footer">
+        Báo cáo được tạo lúc <%= generatedAt %> bởi AutoTest Tool — Load Testing Module
+    </div>
+</div>
+</body>
+</html>

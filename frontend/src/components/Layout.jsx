@@ -1,4 +1,4 @@
-import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch, Video, BarChart3, Settings } from 'lucide-react'
+import { LayoutDashboard, FlaskConical, ClipboardList, Activity, History, Sparkles, FolderOpen, LogOut, Shield, ScanSearch, Video, BarChart3, Gauge, Settings, Zap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
@@ -12,6 +12,8 @@ const NAV = [
     { id: 'history', label: 'Lịch sử thực thi', Icon: History },
     { id: 'recorder', label: 'Ghi & phát lại', Icon: Video },
     { id: 'analytics', label: 'Phân tích thông minh', Icon: BarChart3 },
+    { id: 'performance', label: 'Page Speed', Icon: Gauge },
+    { id: 'load-testing', label: 'Kiểm thử hiệu năng', Icon: Zap },
     { id: 'settings', label: 'Cài đặt hệ thống', Icon: Settings },
 ]
 

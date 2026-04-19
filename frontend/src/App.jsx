@@ -14,6 +14,8 @@ import UICheckerV2 from './pages/UICheckerV2'
 import UICheckerV3 from './pages/UICheckerV3'
 import RecordReplay from './pages/RecordReplay'
 import Analytics from './pages/Analytics'
+import PerformanceTesting from './pages/PerformanceTesting'
+import LoadTesting from './pages/LoadTesting'
 import SettingsPage from './pages/SettingsPage'
 import './index.css'
 
@@ -51,6 +53,8 @@ function AppContent() {
       case 'ui-checker-v2': return <UICheckerV2 navigate={navigate} ctx={ctx} />
       case 'recorder': return <RecordReplay navigate={navigate} ctx={ctx} />
       case 'analytics': return <Analytics navigate={navigate} ctx={ctx} />
+      case 'performance': return <PerformanceTesting navigate={navigate} ctx={ctx} />
+      case 'load-testing': return <LoadTesting navigate={navigate} ctx={ctx} />
       case 'settings': return <SettingsPage navigate={navigate} />
       default: return <Dashboard navigate={navigate} />
     }
@@ -64,6 +68,8 @@ function AppContent() {
     'ui-checker-v2': 'Kiểm thử giao diện V2',
     recorder: 'Ghi & phát lại',
     analytics: 'Phân tích thông minh',
+    performance: 'Page Speed (Core Web Vitals)',
+    'load-testing': 'Kiểm thử hiệu năng (Load Testing)',
     settings: 'Cài đặt hệ thống'
   }
 

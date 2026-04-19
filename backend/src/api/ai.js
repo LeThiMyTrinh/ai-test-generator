@@ -15,12 +15,22 @@ const EnhancedUIChecker = require('../ai/EnhancedUIChecker');
 const DesignComparer = require('../ai/DesignComparer');
 const InteractionTester = require('../ai/InteractionTester');
 const UICheckerReporter = require('../reporter/UICheckerReporter');
+const PerformanceTester = require('../ai/PerformanceTester');
+const PerformanceReporter = require('../reporter/PerformanceReporter');
+const LoadTester = require('../ai/LoadTester');
+const LoadTestReporter = require('../reporter/LoadTestReporter');
+const { DEFAULT_TEST_CASES } = require('../ai/load-tests/TestSuite');
+const { SLO_PRESETS } = require('../ai/load-tests/loadHelpers');
 const db = require('../db/database');
 
 const enhancedChecker = new EnhancedUIChecker();
 const designComparer = new DesignComparer();
 const interactionTester = new InteractionTester();
 const uiReporter = new UICheckerReporter();
+const performanceTester = new PerformanceTester();
+const performanceReporter = new PerformanceReporter();
+const loadTester = new LoadTester();
+const loadTestReporter = new LoadTestReporter();
 
 // Directory for persisted screenshots
 const UI_SCREENSHOTS_DIR = path.join(__dirname, '../../../data/ui-screenshots');
@@ -735,6 +745,378 @@ router.get('/ui-history/:id/pdf', async (req, res) => {
         try { fs.unlinkSync(pdfPath); } catch { }
     } catch (err) {
         console.error('[Export PDF] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===== PERFORMANCE TESTING ENDPOINTS =====
+
+// POST /api/ai/performance-test — Run performance test
+router.post('/performance-test', async (req, res) => {
+    try {
+        const { url, loginEmail, loginPassword, viewports } = req.body;
+        if (!url) return res.status(400).json({ error: 'Cần cung cấp URL.' });
+
+        console.log(`[PerformanceTester] Starting test: ${url}`);
+
+        const emitProgress = (data) => {
+            if (io_ref) io_ref.emit('performance-progress', data);
+        };
+
+        const result = await performanceTester.test(url, {
+            loginEmail,
+            loginPassword,
+            viewports: viewports || ['desktop', 'mobile'],
+            emitProgress,
+        });
+
+        console.log(`[PerformanceTester] Done: score=${result.score}/100, duration=${result.duration_ms}ms`);
+
+        // Save to history
+        try {
+            // Strip screenshots from DB storage
+            const resultForDb = JSON.parse(JSON.stringify(result));
+            const screenshotMap = {};
+
+            if (resultForDb.viewports) {
+                for (const [vpKey, vpData] of Object.entries(resultForDb.viewports)) {
+                    if (vpData.screenshot) {
+                        screenshotMap[vpKey] = saveScreenshot(vpData.screenshot, '', vpKey);
+                        delete vpData.screenshot;
+                    }
+                }
+            }
+
+            const historyRecord = await db.performanceHistory.insert({
+                url,
+                created_at: new Date().toISOString(),
+                score: result.score,
+                rating: result.rating,
+                summary: result.summary,
+                result: resultForDb,
+                screenshotMap: {},
+            });
+
+            // Re-save screenshots with correct historyId
+            const finalScreenshotMap = {};
+            if (result.viewports) {
+                for (const [vpKey, vpData] of Object.entries(result.viewports)) {
+                    if (vpData.screenshot) {
+                        finalScreenshotMap[vpKey] = saveScreenshot(vpData.screenshot, historyRecord._id, `perf_${vpKey}`);
+                    }
+                }
+            }
+            await db.performanceHistory.update({ _id: historyRecord._id }, { $set: { screenshotMap: finalScreenshotMap } });
+
+            result._historyId = historyRecord._id;
+            console.log(`[History] Saved performance test: ${historyRecord._id}`);
+        } catch (histErr) {
+            console.warn('[History] Save error:', histErr.message);
+        }
+
+        res.json(result);
+    } catch (err) {
+        console.error('[PerformanceTester] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/performance-history — List performance test history
+router.get('/performance-history', async (req, res) => {
+    try {
+        const { url, limit = 50, skip = 0 } = req.query;
+        const query = url ? { url } : {};
+        const records = await db.performanceHistory
+            .find(query)
+            .sort({ created_at: -1 })
+            .skip(parseInt(skip))
+            .limit(parseInt(limit));
+
+        const list = records.map(r => ({
+            _id: r._id,
+            url: r.url,
+            created_at: r.created_at,
+            score: r.score,
+            rating: r.rating,
+            summary: r.summary || {},
+        }));
+
+        const total = await db.performanceHistory.count(query);
+        res.json({ records: list, total });
+    } catch (err) {
+        console.error('[PerfHistory] List error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/performance-history/:id — Get full performance test record
+router.get('/performance-history/:id', async (req, res) => {
+    try {
+        const record = await db.performanceHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+
+        // Reload screenshots
+        if (record.screenshotMap && record.result?.viewports) {
+            for (const [key, filename] of Object.entries(record.screenshotMap)) {
+                const vpKey = key.replace('perf_', '');
+                const data = loadScreenshot(filename);
+                if (data && record.result.viewports[vpKey]) {
+                    record.result.viewports[vpKey].screenshot = data;
+                }
+            }
+        }
+
+        res.json(record);
+    } catch (err) {
+        console.error('[PerfHistory] Detail error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/ai/performance-history/:id — Delete a performance test record
+router.delete('/performance-history/:id', async (req, res) => {
+    try {
+        const record = await db.performanceHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+
+        if (record.screenshotMap) {
+            for (const filename of Object.values(record.screenshotMap)) {
+                if (filename) {
+                    const filePath = path.join(UI_SCREENSHOTS_DIR, filename);
+                    try { fs.unlinkSync(filePath); } catch { }
+                }
+            }
+        }
+
+        await db.performanceHistory.remove({ _id: req.params.id });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[PerfHistory] Delete error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/performance-history/:id/html — Export HTML report
+router.get('/performance-history/:id/html', async (req, res) => {
+    try {
+        const record = await db.performanceHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+
+        // Reload screenshots
+        const screenshots = {};
+        if (record.screenshotMap) {
+            for (const [key, filename] of Object.entries(record.screenshotMap)) {
+                const data = loadScreenshot(filename);
+                if (data) screenshots[key] = data;
+            }
+        }
+
+        const { html, filename } = await performanceReporter.generateHTML(record, { screenshots });
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(html);
+    } catch (err) {
+        console.error('[PerfExport HTML] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/performance-history/:id/pdf — Export PDF report
+router.get('/performance-history/:id/pdf', async (req, res) => {
+    try {
+        const record = await db.performanceHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+
+        const screenshots = {};
+        if (record.screenshotMap) {
+            for (const [key, filename] of Object.entries(record.screenshotMap)) {
+                const data = loadScreenshot(filename);
+                if (data) screenshots[key] = data;
+            }
+        }
+
+        const htmlResult = await performanceReporter.generateHTML(record, { screenshots });
+        const { path: pdfPath, filename } = await performanceReporter.generatePDF(htmlResult.path);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        const pdfBuffer = fs.readFileSync(pdfPath);
+        res.send(pdfBuffer);
+
+        try { fs.unlinkSync(htmlResult.path); } catch { }
+        try { fs.unlinkSync(pdfPath); } catch { }
+    } catch (err) {
+        console.error('[PerfExport PDF] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===== LOAD TESTING ENDPOINTS =====
+
+// GET /api/ai/load-test/config — Trả về danh sách test case và SLO presets để UI render
+router.get('/load-test/config', (_req, res) => {
+    res.json({
+        testCases: DEFAULT_TEST_CASES.map(tc => ({
+            id: tc.id,
+            name: tc.name,
+            label: tc.label,
+            description: tc.description,
+            required: tc.required,
+            order: tc.order,
+            config: tc.config,
+        })),
+        sloPresets: SLO_PRESETS,
+    });
+});
+
+// POST /api/ai/load-test — Chạy bộ test case load testing
+router.post('/load-test', async (req, res) => {
+    try {
+        const {
+            url,
+            selectedTestCases,
+            sloPreset = 'strict',
+            customSLO,
+            loginEmail,
+            loginPassword,
+            confirmedNotProd,
+        } = req.body;
+
+        if (!url) return res.status(400).json({ error: 'URL là bắt buộc.' });
+        if (!confirmedNotProd) {
+            return res.status(400).json({
+                error: 'Bạn phải xác nhận không test trên môi trường production của người khác (confirmedNotProd = true).',
+            });
+        }
+
+        console.log(`[LoadTester] Starting: ${url}`);
+
+        const emitProgress = (data) => {
+            if (io_ref) io_ref.emit('load-test-progress', data);
+        };
+
+        const result = await loadTester.run({
+            url,
+            selectedTestCases,
+            sloPreset,
+            customSLO,
+            loginEmail,
+            loginPassword,
+            emitProgress,
+        });
+
+        console.log(`[LoadTester] Done: verdict=${result.verdict}, capacity=${result.capacity}, duration=${result.durationMs}ms`);
+
+        // Save to history
+        try {
+            const record = await db.loadTestHistory.insert({
+                url,
+                created_at: new Date().toISOString(),
+                verdict: result.verdict,
+                verdictLabel: result.verdictLabel,
+                capacity: result.capacity,
+                breakpoint: result.breakpoint,
+                summary: result.summary,
+                result,
+            });
+            result._historyId = record._id;
+            console.log(`[LoadTestHistory] Saved: ${record._id}`);
+        } catch (histErr) {
+            console.warn('[LoadTestHistory] Save error:', histErr.message);
+        }
+
+        res.json(result);
+    } catch (err) {
+        console.error('[LoadTester] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/load-test-history — List
+router.get('/load-test-history', async (req, res) => {
+    try {
+        const { url, limit = 50, skip = 0 } = req.query;
+        const query = url ? { url } : {};
+        const records = await db.loadTestHistory
+            .find(query)
+            .sort({ created_at: -1 })
+            .skip(parseInt(skip))
+            .limit(parseInt(limit));
+
+        const list = records.map(r => ({
+            _id: r._id,
+            url: r.url,
+            created_at: r.created_at,
+            verdict: r.verdict,
+            verdictLabel: r.verdictLabel,
+            capacity: r.capacity,
+            breakpoint: r.breakpoint,
+            summary: r.summary || {},
+        }));
+
+        const total = await db.loadTestHistory.count(query);
+        res.json({ records: list, total });
+    } catch (err) {
+        console.error('[LoadTestHistory] List error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/load-test-history/:id — Full record
+router.get('/load-test-history/:id', async (req, res) => {
+    try {
+        const record = await db.loadTestHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+        res.json(record);
+    } catch (err) {
+        console.error('[LoadTestHistory] Detail error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/ai/load-test-history/:id
+router.delete('/load-test-history/:id', async (req, res) => {
+    try {
+        const record = await db.loadTestHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+        await db.loadTestHistory.remove({ _id: req.params.id });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[LoadTestHistory] Delete error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/load-test-history/:id/html — Export HTML
+router.get('/load-test-history/:id/html', async (req, res) => {
+    try {
+        const record = await db.loadTestHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+        const { html, filename } = await loadTestReporter.generateHTML(record);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(html);
+    } catch (err) {
+        console.error('[LoadTestExport HTML] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/ai/load-test-history/:id/pdf — Export PDF
+router.get('/load-test-history/:id/pdf', async (req, res) => {
+    try {
+        const record = await db.loadTestHistory.findOne({ _id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Không tìm thấy bản ghi.' });
+        const htmlResult = await loadTestReporter.generateHTML(record);
+        const { path: pdfPath, filename } = await loadTestReporter.generatePDF(htmlResult.path);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        const pdfBuffer = fs.readFileSync(pdfPath);
+        res.send(pdfBuffer);
+        try { fs.unlinkSync(htmlResult.path); } catch { }
+        try { fs.unlinkSync(pdfPath); } catch { }
+    } catch (err) {
+        console.error('[LoadTestExport PDF] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

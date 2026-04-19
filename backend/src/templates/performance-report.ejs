@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance Report - <%= record.url %></title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; color: #1e293b; background: #f8fafc; line-height: 1.5; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    .header { background: linear-gradient(135deg, #1e40af, #7c3aed); color: #fff; padding: 32px; border-radius: 12px; margin-bottom: 24px; }
+    .header h1 { font-size: 22px; margin-bottom: 8px; }
+    .header .meta { font-size: 12px; opacity: 0.85; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 16px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+    .card h3 { font-size: 14px; margin-bottom: 10px; }
+
+    /* Score Gauge */
+    .score-section { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+    .score-circle { position: relative; width: 140px; height: 140px; }
+    .score-circle svg { width: 140px; height: 140px; }
+    .score-value { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .score-value .num { font-size: 42px; font-weight: 800; }
+    .score-value .lbl { font-size: 11px; color: #64748b; }
+
+    /* Grid */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+
+    /* Metric Card */
+    .metric-card { padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
+    .metric-card .label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+    .metric-card .value { font-size: 22px; font-weight: 700; }
+    .metric-card .rating { font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+
+    /* Colors */
+    .good { color: #16a34a; }
+    .needs-improvement { color: #ca8a04; }
+    .poor { color: #dc2626; }
+    .bg-good { background: #f0fdf4; border-color: #bbf7d0; }
+    .bg-ni { background: #fefce8; border-color: #fef08a; }
+    .bg-poor { background: #fef2f2; border-color: #fecaca; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 8px; border-bottom: 2px solid #e2e8f0; font-weight: 600; color: #64748b; }
+    td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+    tr:hover { background: #f8fafc; }
+
+    /* Badge */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .badge-critical { background: #fee2e2; color: #991b1b; }
+    .badge-high { background: #fff7ed; color: #c2410c; }
+    .badge-medium { background: #fefce8; color: #a16207; }
+    .badge-low { background: #f0fdf4; color: #15803d; }
+
+    /* Recommendation */
+    .rec { padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid; }
+    .rec-critical { border-color: #dc2626; background: #fef2f2; }
+    .rec-high { border-color: #ea580c; background: #fff7ed; }
+    .rec-medium { border-color: #ca8a04; background: #fefce8; }
+    .rec-low { border-color: #16a34a; background: #f0fdf4; }
+    .rec .title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+    .rec .desc { font-size: 12px; color: #64748b; }
+    .rec ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; }
+    .rec li { margin-bottom: 3px; }
+
+    /* Progress bar */
+    .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; }
+
+    /* Threshold bar */
+    .threshold-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+
+    /* Footer */
+    .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+
+    /* Screenshots */
+    .screenshot { max-width: 100%; border-radius: 8px; border: 1px solid #e2e8f0; }
+
+    @media print {
+        body { background: #fff; }
+        .container { padding: 0; }
+        .card { break-inside: avoid; }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>Bao cao Kiem tra Hieu nang</h1>
+        <div class="meta">
+            URL: <%= record.url %><br>
+            Ngay: <%= record.created_at ? new Date(record.created_at).toLocaleString('vi-VN') : generatedAt %><br>
+            Thoi gian thuc thi: <%= record.result?.duration_ms ? (record.result.duration_ms / 1000).toFixed(1) + 's' : 'N/A' %>
+        </div>
+    </div>
+
+    <% const result = record.result || {}; %>
+    <% const summary = result.summary || record.summary || {}; %>
+    <% const score = result.score || record.score || 0; %>
+    <% const rating = result.rating || record.rating || 'poor'; %>
+
+    <!-- Score Section -->
+    <div class="card">
+        <div class="score-section">
+            <div class="score-circle">
+                <svg viewBox="0 0 140 140">
+                    <circle cx="70" cy="70" r="58" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+                    <% const circumference = 2 * Math.PI * 58; %>
+                    <% const progress = (score / 100) * circumference; %>
+                    <% const scoreColor = score >= 90 ? '#16a34a' : score >= 50 ? '#ca8a04' : '#dc2626'; %>
+                    <circle cx="70" cy="70" r="58" fill="none" stroke="<%= scoreColor %>" stroke-width="8" stroke-linecap="round"
+                        stroke-dasharray="<%= circumference %>" stroke-dashoffset="<%= circumference - progress %>"
+                        transform="rotate(-90 70 70)"/>
+                </svg>
+                <div class="score-value">
+                    <span class="num" style="color:<%= scoreColor %>"><%= score %></span>
+                    <span class="lbl">/ 100</span>
+                </div>
+            </div>
+
+            <div style="flex:1">
+                <h2 style="border:none;padding:0;margin-bottom:12px">Performance Score</h2>
+                <% const vp = Object.values(result.viewports || {})[0] || {}; %>
+                <% const ms = vp.metricScores || {}; %>
+                <div class="grid-5">
+                    <% for (const [key, m] of Object.entries(ms)) { %>
+                        <% const rClass = m.rating === 'good' ? 'bg-good' : m.rating === 'needs-improvement' ? 'bg-ni' : 'bg-poor'; %>
+                        <div class="metric-card <%= rClass %>">
+                            <div class="label"><%= key %></div>
+                            <div class="value <%= m.rating %>"><%= m.formatted %></div>
+                            <div class="rating <%= m.rating %>">
+                                <%= m.rating === 'good' ? 'Tot' : m.rating === 'needs-improvement' ? 'Can cai thien' : 'Kem' %>
+                            </div>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page Load Timing -->
+    <% if (vp.pageLoad) { %>
+    <div class="card">
+        <h2>Page Load Timing</h2>
+        <div class="grid-4">
+            <% const plMetrics = [
+                { label: 'TTFB', value: vp.pageLoad.ttfb },
+                { label: 'DOM Interactive', value: vp.pageLoad.domInteractive },
+                { label: 'DOM Content Loaded', value: vp.pageLoad.domContentLoaded },
+                { label: 'Load Event', value: vp.pageLoad.loadEvent },
+                { label: 'DNS', value: vp.pageLoad.dnsTime },
+                { label: 'Connect', value: vp.pageLoad.connectTime },
+                { label: 'TLS', value: vp.pageLoad.tlsTime },
+                { label: 'Redirect', value: vp.pageLoad.redirectTime },
+            ]; %>
+            <% for (const pm of plMetrics) { %>
+            <div class="metric-card">
+                <div class="label"><%= pm.label %></div>
+                <div class="value" style="font-size:16px">
+                    <%= pm.value != null ? (pm.value >= 1000 ? (pm.value/1000).toFixed(2) + 's' : Math.round(pm.value) + 'ms') : 'N/A' %>
+                </div>
+            </div>
+            <% } %>
+        </div>
+        <% if (vp.pageLoad.protocol) { %>
+        <div style="margin-top:10px;font-size:11px;color:#64748b">
+            Protocol: <strong><%= vp.pageLoad.protocol %></strong> |
+            Redirects: <strong><%= vp.pageLoad.redirectCount || 0 %></strong> |
+            Transfer: <strong><%= vp.pageLoad.transferSize ? (vp.pageLoad.transferSize / 1024).toFixed(1) + ' KB' : 'N/A' %></strong>
+        </div>
+        <% } %>
+    </div>
+    <% } %>
+
+    <!-- Resources -->
+    <% if (vp.resources) { %>
+    <div class="card">
+        <h2>Tai nguyen (<%= vp.resources.totalCount %> files, <%= (vp.resources.totalSize / 1024 / 1024).toFixed(1) %> MB)</h2>
+        <table>
+            <thead>
+                <tr><th>Loai</th><th style="text-align:right">So luong</th><th style="text-align:right">Dung luong</th><th>Ty le</th></tr>
+            </thead>
+            <tbody>
+                <% for (const [type, data] of Object.entries(vp.resources.byType || {}).sort((a,b) => b[1].size - a[1].size)) { %>
+                <% const pct = vp.resources.totalSize > 0 ? (data.size / vp.resources.totalSize * 100) : 0; %>
+                <tr>
+                    <td><%= type %></td>
+                    <td style="text-align:right"><%= data.count %></td>
+                    <td style="text-align:right"><%= (data.size / 1024).toFixed(1) %> KB</td>
+                    <td>
+                        <div class="progress-bar" style="width:200px;display:inline-block;vertical-align:middle">
+                            <div class="progress-fill" style="width:<%= pct %>%;background:#3b82f6"></div>
+                        </div>
+                        <span style="font-size:11px;color:#64748b;margin-left:6px"><%= pct.toFixed(1) %>%</span>
+                    </td>
+                </tr>
+                <% } %>
+            </tbody>
+        </table>
+
+        <% if (vp.resources.renderBlocking && vp.resources.renderBlocking.length > 0) { %>
+        <h3 style="margin-top:16px;color:#dc2626">Render-blocking Resources (<%= vp.resources.renderBlocking.length %>)</h3>
+        <% for (const rb of vp.resources.renderBlocking) { %>
+        <div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:11px">
+            <span style="color:#64748b;word-break:break-all"><%= rb.url %></span><br>
+            <span style="color:#16a34a">Fix: <%= rb.fix %></span>
+        </div>
+        <% } %>
+        <% } %>
+    </div>
+    <% } %>
+
+    <!-- Network -->
+    <% if (vp.network) { %>
+    <div class="card">
+        <h2>Mang</h2>
+        <div class="grid-4">
+            <div class="metric-card">
+                <div class="label">Tong Requests</div>
+                <div class="value" style="font-size:18px"><%= vp.network.totalRequests %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Transfer Size</div>
+                <div class="value" style="font-size:18px"><%= (vp.network.totalTransferSize / 1024).toFixed(0) %> KB</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Cache Hit Rate</div>
+                <div class="value" style="font-size:18px"><%= (vp.network.cacheHitRate || 0).toFixed(0) %>%</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Failed</div>
+                <div class="value poor" style="font-size:18px"><%= (vp.network.failed || []).length %></div>
+            </div>
+        </div>
+
+        <% if (vp.network.slowest && vp.network.slowest.length > 0) { %>
+        <h3 style="margin-top:16px">Requests cham nhat</h3>
+        <table>
+            <thead><tr><th>URL</th><th>Loai</th><th style="text-align:right">Duration</th><th style="text-align:right">Size</th></tr></thead>
+            <tbody>
+                <% for (const r of vp.network.slowest.slice(0, 8)) { %>
+                <tr>
+                    <td style="max-width:400px;word-break:break-all"><%= r.url %></td>
+                    <td><%= r.type %></td>
+                    <td style="text-align:right;color:#dc2626;font-weight:600"><%= r.duration %>ms</td>
+                    <td style="text-align:right"><%= r.size ? (r.size / 1024).toFixed(1) + ' KB' : '-' %></td>
+                </tr>
+                <% } %>
+            </tbody>
+        </table>
+        <% } %>
+    </div>
+    <% } %>
+
+    <!-- Runtime -->
+    <% if (vp.runtime) { %>
+    <div class="card">
+        <h2>Runtime Metrics</h2>
+        <div class="grid-4">
+            <div class="metric-card">
+                <div class="label">JS Heap Used</div>
+                <div class="value" style="font-size:16px"><%= vp.runtime.jsHeapUsed ? (vp.runtime.jsHeapUsed / 1024 / 1024).toFixed(1) + ' MB' : 'N/A' %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Heap Usage</div>
+                <div class="value" style="font-size:16px"><%= vp.runtime.heapUsagePercent ? vp.runtime.heapUsagePercent.toFixed(0) + '%' : 'N/A' %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">DOM Nodes</div>
+                <div class="value" style="font-size:16px;color:<%= (vp.runtime.domNodeCount || 0) > 1500 ? '#ca8a04' : '#16a34a' %>"><%= vp.runtime.domNodeCount || vp.runtime.totalElements || 0 %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Layout Count</div>
+                <div class="value" style="font-size:16px"><%= vp.runtime.layoutCount || 0 %></div>
+            </div>
+        </div>
+        <div class="grid-4" style="margin-top:12px">
+            <div class="metric-card">
+                <div class="label">Script Duration</div>
+                <div class="value" style="font-size:14px"><%= vp.runtime.scriptDuration ? vp.runtime.scriptDuration.toFixed(0) + 'ms' : 'N/A' %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Layout Duration</div>
+                <div class="value" style="font-size:14px"><%= vp.runtime.layoutDuration ? vp.runtime.layoutDuration.toFixed(0) + 'ms' : 'N/A' %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">RecalcStyle Count</div>
+                <div class="value" style="font-size:14px"><%= vp.runtime.recalcStyleCount || 0 %></div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Max DOM Depth</div>
+                <div class="value" style="font-size:14px"><%= vp.runtime.maxDomDepth || 0 %></div>
+            </div>
+        </div>
+    </div>
+    <% } %>
+
+    <!-- Recommendations -->
+    <% const recs = result.recommendations || []; %>
+    <% if (recs.length > 0) { %>
+    <div class="card">
+        <h2>Khuyen nghi toi uu (<%= recs.length %>)</h2>
+        <% for (const rec of recs) { %>
+        <div class="rec rec-<%= (rec.severity || 'medium').toLowerCase() %>">
+            <div class="title">
+                <span class="badge badge-<%= (rec.severity || 'medium').toLowerCase() %>"><%= rec.severity %></span>
+                <% if (rec.metric) { %><span style="font-family:monospace;font-size:11px;color:#64748b;margin-left:6px"><%= rec.metric %></span><% } %>
+                &nbsp; <%= rec.title %>
+            </div>
+            <div class="desc"><%= rec.description %></div>
+            <% if (rec.suggestions && rec.suggestions.length > 0) { %>
+            <ul>
+                <% for (const s of rec.suggestions) { %>
+                <li><%= s %></li>
+                <% } %>
+            </ul>
+            <% } %>
+        </div>
+        <% } %>
+    </div>
+    <% } %>
+
+    <!-- Screenshots -->
+    <% if (Object.keys(screenshots).length > 0) { %>
+    <div class="card">
+        <h2>Screenshots</h2>
+        <div class="grid-2">
+            <% for (const [key, src] of Object.entries(screenshots)) { %>
+            <div>
+                <div style="font-size:12px;font-weight:600;margin-bottom:6px"><%= key.replace('perf_', '').toUpperCase() %></div>
+                <img src="<%= src %>" class="screenshot" alt="<%= key %>">
+            </div>
+            <% } %>
+        </div>
+    </div>
+    <% } %>
+
+    <!-- Footer -->
+    <div class="footer">
+        AutoTest Tool - Performance Report | Tao luc: <%= generatedAt %>
+    </div>
+</div>
+</body>
+</html>
